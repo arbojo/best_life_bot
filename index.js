@@ -437,7 +437,7 @@ waClient.on('message', async (msg) => {
                         let textFoto = `🔥 *${prod.nombre}*\n`;
                         if(prod.descripcion) textFoto += `${prod.descripcion}\n\n`;
                         if(prod.beneficio_principal) textFoto += `✅ ${prod.beneficio_principal}\n\n`;
-                        textFoto += `🚚 ¡Envío GRATIS hasta hoy!`;
+                        textFoto += `🚚 ¡Envío sin costo!\n💵 Pago contra entrega (Efectivo, Tarjeta en terminal o Transferencia)`;
 
                         await waClient.sendMessage(msg.from, media, { caption: textFoto });
                     } catch (e) { console.error("Error mandando foto:", e); }
