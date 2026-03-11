@@ -18,8 +18,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 const userContexts = new Map();
-let botMode = 1; 
-
+let botMode = 0; // 0 = Simulación (No envía mensajes), 1 = Producción (Envía mensajes)
 // --- Funciones de Base de Datos ---
 async function getCatalogoSupabase() {
     try {
