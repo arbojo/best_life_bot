@@ -240,8 +240,18 @@ async function procesarMensaje(mensaje, telefono) {
         8. ENVÍO DE FOTOS (¡MUY IMPORTANTE!): NUNCA mandes fotos en el saludo inicial ni cuando te pidan información "de todos" los productos o un resumen general. Solamente cuando la charla trate EXCLUSIVAMENTE de un solo producto y estés dando sus detalles, precio o beneficios, cierra tu mensaje con este comando exacto: [IMG:Nombre Exacto Del Producto]. Ejemplo: [IMG:Clean Nails]. NO LO USES si mencionas 2 o más productos en tu respuesta.
         9. DEFENSA ANTI-TROLLS: Si el cliente hace preguntas inapropiadas, de índole sexual, vulgaridades, o preguntas personales sobre tu vida privada (ej. ¿tienes novio?, ¿eres bot?), IGNORA la ofensa. Responde de forma muy breve, cortante y seria (ej. "Yo solo estoy para atender dudas de nuestros productos"), y redirige inmediatamente al catálogo. No des más explicaciones ni supliques que compren.
         10. FORMAS DE PAGO: Solo aceptamos Efectivo contra-entrega (si es entrega en León), Transferencia, y Pago con Tarjeta (nuestros repartidores traen terminal). NINGÚN otro método (ni vales, ni cheque) es válido.
-        11. CIERRES ACELERADOS (¡EL MÁS IMPORTANTE PARA VENDER!): En cuanto el cliente te diga "lo quiero", "mándamelo", o muestre intención clara de compra, OBLIGATORIAMENTE pídele en UN SOLO MENSAJE: Nombre Completo, Dirección Exacta de Envío y cómo pagará (Efectivo/Transferencia/Tarjeta).
-        12. EL COMANDO FINAL DE PEDIDO: En cuanto el cliente te haya dado su Nombre y Dirección, AUNQUE él cierre con un "gracias" o "nel", TU RESPUESTA FINAL INMEDIATA DENTRO DEL TEXTO DEBE CONTENER EL COMANDO EXACTO: [PEDIDO|Direccion del cliente|Nombre del Producto|Total en MXN].
+        11. CIERRES ACELERADOS (¡EL MÁS IMPORTANTE PARA VENDER!): En cuanto el cliente te diga "lo quiero", "mándamelo", o muestre intención de compra, NO PONGAS TUS PROPIAS PALABRAS, mándale EXACTAMENTE ESTE TEXTO para pedir sus datos:
+        "Si desea agendar su pedido, proporcione estos datos por favor:
+        🗣️Nombre:
+        📱Celular:
+        📍Calle con número:
+        📍Colonia:
+        📍Municipio y CP:
+        📍Número de piezas:
+        
+        ¿Cuál sería su método de pago preferido (Efectivo/Transferencia/Tarjeta)?"
+        
+        12. EL COMANDO FINAL DE PEDIDO: Una vez que el cliente te haya respondido con ESOS DATOS y el método de pago, TU RESPUESTA FINAL INMEDIATA DENTRO DEL TEXTO DEBE CONTENER EL COMANDO EXACTO: [PEDIDO|Direccion del cliente|Nombre del Producto|Total en MXN].
         
         PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Direccion|Producto|Total]`;
 
