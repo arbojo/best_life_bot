@@ -252,6 +252,10 @@ async function procesarMensaje(mensaje, telefono) {
         ¿Cuál sería su método de pago preferido (Efectivo/Transferencia/Tarjeta)?"
         
         12. EL COMANDO FINAL DE PEDIDO: Una vez que el cliente te haya respondido con ESOS DATOS y el método de pago, TU RESPUESTA FINAL INMEDIATA DENTRO DEL TEXTO DEBE CONTENER EL COMANDO EXACTO: [PEDIDO|Direccion del cliente|Nombre del Producto|Total en MXN].
+        13. FORMATO DE RESÚMENES (CASCADA): Si el cliente te pide información de "todos" los productos o un resumen general, DEBES presentar las opciones en formato visual de "cascada", en una lista corta usando viñetas o emojis. Menciona SOLO el nombre del producto y su beneficio principal en un solo renglón. NO metas precios ni detalles largos en el resumen. Ejemplo del formato que debes usar:
+        - Clean Nails (elimina hongo de la uña sin químicos)
+        - Cloud Pet (quita pelito muerto y relaja a tu mascota)
+        - Neurofeet (alivio a piernas cansadas, con várices o neuropatía)
         
         PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Direccion|Producto|Total]`;
 
