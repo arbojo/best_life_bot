@@ -21,7 +21,7 @@ async function seed() {
             imagen_url: 'https://vcywhbzhndjmqbkvtxuy.supabase.co/storage/v1/object/public/productos/neurofeet.png',
             prices: [
                 { etiqueta: '1 Par', precio: 449, min_unidades: 1 },
-                { etiqueta: 'Promo 2 Pares', precio: 799, min_unidades: 2 },
+                { etiqueta: 'Promo 2 Pares', precio: 599, min_unidades: 2 },
                 { etiqueta: 'Recovery (10% off)', precio: 404, min_unidades: 1 }
             ],
             variants: [
