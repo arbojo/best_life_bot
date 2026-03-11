@@ -263,7 +263,15 @@ async function procesarMensaje(mensaje, telefono) {
         history[0].content = sistemaPrompt;
         history.push({ role: 'user', content: mensaje });
 
-        const response = await openai.chat.completions.create({ model: 'gpt-4o', messages: history.slice(-10), temperature: 0.6 });
+        // Asegurar que el sistemaPrompt nunca se borre al hacer slice
+        let messagesToSend;
+        if (history.length > 10) {
+            messagesToSend = [history[0], ...history.slice(-9)];
+        } else {
+            messagesToSend = history;
+        }
+
+        const response = await openai.chat.completions.create({ model: 'gpt-4o', messages: messagesToSend, temperature: 0.6 });
         const reply = response.choices[0].message.content;
         
         history.push({ role: 'assistant', content: reply });
