@@ -265,8 +265,8 @@ async function procesarMensaje(mensaje, telefono) {
 
         // Asegurar que el sistemaPrompt nunca se borre al hacer slice
         let messagesToSend;
-        if (history.length > 10) {
-            messagesToSend = [history[0], ...history.slice(-9)];
+        if (history.length > 20) {
+            messagesToSend = [history[0], ...history.slice(-19)];
         } else {
             messagesToSend = history;
         }
