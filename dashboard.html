@@ -488,7 +488,7 @@
                         </div>
                     </div>
                     <p style="color:var(--text-dim); font-size:13px; margin: 16px 0;">${p.descripcion || 'Sin descripción'}</p>
-                    <div style="margin-top:20px;">${prices}</div>
+                    <div style="margin-top:20px; display: flex; flex-wrap: wrap; gap: 8px;">${prices}</div>
                     <button class="btn btn-ghost" style="width:100%; margin-top:20px; font-size:12px;" onclick='editProduct(${JSON.stringify(p)})'>Editar Detalles</button>
                 </div>
                 `;
