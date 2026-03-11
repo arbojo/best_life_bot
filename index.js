@@ -23,9 +23,22 @@ let botMode = 1;
 // --- Funciones de Base de Datos ---
 async function getCatalogoSupabase() {
     try {
-        const { data, error } = await supabase.from('productos').select('*, productos_precios(*), productos_variantes(*)').eq('active', true);
-        if (error) throw error;
-        return data;
+        // Consultas separadas para evitar errores de relación
+        const { data: productos, error: pError } = await supabase.from('productos').select('*').eq('active', true);
+        if (pError) throw pError;
+
+        const { data: precios, error: prError } = await supabase.from('productos_precios').select('*');
+        if (prError) console.warn('⚠️ Error al cargar precios:', prError.message);
+
+        const { data: variantes, error: vError } = await supabase.from('productos_variantes').select('*');
+        if (vError) console.warn('⚠️ Error al cargar variantes:', vError.message);
+
+        // Unión manual en JS
+        return productos.map(p => ({
+            ...p,
+            productos_precios: precios ? precios.filter(pr => pr.producto_id === p.id) : [],
+            productos_variantes: variantes ? variantes.filter(v => v.producto_id === p.id) : []
+        }));
     } catch (err) {
         console.error('❌ Error Supabase:', err.message);
         return [];
@@ -92,8 +105,18 @@ async function getBotConfig() {
 // --- Dashboard API ---
 app.get('/', (req, res) => res.sendFile(path.resolve(__dirname, 'dashboard.html')));
 app.get('/api/products', async (req, res) => {
-    const { data } = await supabase.from('productos').select('*, productos_precios(*)').order('id', { ascending: false });
-    res.json(data || []);
+    try {
+        const { data: productos } = await supabase.from('productos').select('*').order('id', { ascending: false });
+        const { data: precios } = await supabase.from('productos_precios').select('*');
+        
+        const merged = (productos || []).map(p => ({
+            ...p,
+            productos_precios: (precios || []).filter(pr => pr.producto_id === p.id)
+        }));
+        res.json(merged);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 app.post('/api/products', async (req, res) => {
     const { data, error } = await supabase.from('productos').insert([req.body]).select();
