@@ -326,10 +326,11 @@ waClient.on('message', async (msg) => {
             const numeroTarget = partes[1].replace(/\D/g, ''); 
             
             try {
-                // Buscar el pedido pendiente (permitimos sufijos @c.us o @lid)
+                // Buscamos el pedido en base al celular (guardado dentro de detalles_envio "Cliente | Dirección | Pago") 
+                // o usando un LIKE generoso para clientes vinculados
                 const { data: pedido } = await supabase.from('pedidos')
                     .select('*')
-                    .ilike('cliente_tel', `${numeroTarget}%`)
+                    .or(`detalles_envio.ilike.%${numeroTarget}%,cliente_tel.ilike.%${numeroTarget}%`)
                     .match({ estado: 'ESPERANDO_CONFIRMACION' })
                     .order('created_at', { ascending: false })
                     .limit(1)
@@ -375,10 +376,11 @@ waClient.on('message', async (msg) => {
                 const pago = parts[5] || 'Acordar';
                 const total = parts[6] || 0;
 
-                const envioDetalle = `${nombre} | ${direccion} | Pago: ${pago}`;
+                const envioDetalle = `${nombre} | ${celularInfo} | ${direccion} | Pago: ${pago}`;
                 const productoDetalle = `${piezas}x ${producto}`;
-                // Guardamos numLimpio quitando cualquier dominio posterior al @ para imprimirlo claro en el mensaje
-                const numLimpio = msg.from.split('@')[0];
+                
+                // Usaremos exclusivamente el celular corto que dio el cliente como clave operativa para los humanos
+                const numLimpio = celularInfo.replace(/\D/g, ''); 
 
                 // Guardar pedido como ESPERANDO_CONFIRMACION
                 const pResult = await supabase.from('pedidos').insert([{ 
@@ -392,7 +394,7 @@ waClient.on('message', async (msg) => {
                     const chats = await waClient.getChats();
                     const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
                     if (grupoVentas) {
-                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n\n👤 *Cliente:* ${nombre}\n📱 *Celular proporcionado:* ${celularInfo}\n💬 *WhatsApp real:* ${numLimpio}\n📍 *Dirección:* ${direccion}\n📦 *Producto:* ${productoDetalle}\n💵 *Pago:* ${pago} (Monto: $${total})\n\n👉 *Para autorizar y mandar confirmación al cliente, responde aquí:*\nenterado ${numLimpio}`;
+                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n\n👤 *Cliente:* ${nombre}\n📱 *Celular:* ${celularInfo}\n📍 *Dirección:* ${direccion}\n📦 *Producto:* ${productoDetalle}\n💵 *Pago:* ${pago} (Monto: $${total})\n\n👉 *Para autorizar y mandar confirmación al cliente, responde aquí:*\nenterado ${numLimpio}`;
                         await grupoVentas.sendMessage(alerta);
                     } else {
                         console.log('No se encontró el grupo "ventas" para alertar del pedido.');
