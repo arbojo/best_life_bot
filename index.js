@@ -184,6 +184,10 @@ app.delete('/api/products/:id/variants', async (req, res) => {
 // --- Core Logic ---
 async function procesarMensaje(mensaje, telefono) {
     try {
+        // Obtenemos el registro para checar si ya pasaron las 12 horas
+        const { data: clienteRecord } = await supabase.from('clientes').select('estado_seguimiento').eq('telefono', telefono).single();
+        const appliesRecovery = clienteRecord && clienteRecord.estado_seguimiento === 'RECUPERACION_ENVIADA';
+
         const catalogo = await getCatalogoSupabase();
         const contextoCliente = await getContextoCliente(telefono);
         const config = await getBotConfig();
@@ -191,7 +195,12 @@ async function procesarMensaje(mensaje, telefono) {
         const ganchoEnvio = parseInt(horaStr) < 16 ? "HOY MISMO" : "MAÑANA";
         
         const listadoProductos = catalogo.map(p => {
-            const allPrices = (p.productos_precios || []).map(pr => `${pr.etiqueta}: $${pr.precio} (min ${pr.min_unidades} pzas)`).join(', ');
+            let preciosFiltrados = p.productos_precios || [];
+            // Ocultamos a Mia los precios Recovery si no se ha enviado el seguimiento de 12 Hrs
+            if (!appliesRecovery) {
+                preciosFiltrados = preciosFiltrados.filter(pr => !pr.etiqueta.toLowerCase().includes('recovery'));
+            }
+            const allPrices = preciosFiltrados.map(pr => `${pr.etiqueta}: $${pr.precio} (min ${pr.min_unidades} pzas)`).join(', ');
             let pInfo = `*${p.nombre}* (${p.categoria || 'aparato'}):\n  - PRECIOS: ${allPrices}`;
             
             if (p.categoria === 'prenda' && p.productos_variantes && p.productos_variantes.length > 0) {
@@ -211,7 +220,7 @@ async function procesarMensaje(mensaje, telefono) {
         const sistemaPrompt = `MISION: ${config.bot_persona}
         RECUERDA: 
         1. PRECIOS: Usa la tabla de precios tal cual. Si alguien pide 3 piezas, dale el precio de "min 3".
-        2. RECOVERY: Solo usa los precios que digan "Recovery" o "Recuperación" si el cliente está por irse o dice que es muy caro. Úsalos como último recurso para cerrar.
+        2. DESCUENTOS (RECOVERY): Si notas que tu catálogo ahora incluye precios etiquetados como "Recovery" o "Recuperación", el cliente es elegible para un descuento especial de seguimiento de 12 hr!. Ofrécele el precio Recovery con entusiasmo para cerrar la venta. Si no ves etiquetas Recovery, NO INVENTES LOS DESCUENTOS. Solo apégate a los normales.
         3. PRODUCTOS TIPO PRENDA: Consulta el STOCK DETALLADO. Si una talla/color está AGOTADO, dilo amablemente y ofrece alternativas. Confirma talla/color antes de cerrar.
         4. OBJECIONES: Si el cliente duda, usa la sección de "MANEJO DE OBJECIONES" y el "HACK DEL EXPERTO" del producto.
         5. REGLAS DE VENTA: Respeta las reglas (ej: solo paquetes) siempre con amabilidad.
