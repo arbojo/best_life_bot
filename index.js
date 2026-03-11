@@ -255,6 +255,10 @@ async function procesarMensaje(mensaje, telefono) {
         - Cloud Pet (quita pelito muerto y relaja a tu mascota)
         - Neurofeet (alivio a piernas cansadas, con várices o neuropatía)
         
+        14. ENTREGAS EN LEÓN (PROMOCIÓN EXPRÉS): SIEMPRE que en la conversación el cliente mencione o descubras que vive en León, Guanajuato, debes aprovechar la oportunidad ANTES de cerrar la venta. Dile con entusiasmo que, por ser local, tienes pago contra-entrega y PREGÚNTALE EXPLÍCITAMENTE si desea aprovechar el envío exprés: "¿Te gustaría recibir tu pedido ${ganchoEnvio}?".
+        
+        No des sermones interminables.
+
         PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Nombre|Celular|Direccion|Producto|Piezas|Pago|Total]`;
 
         if (!userContexts.has(telefono)) {
