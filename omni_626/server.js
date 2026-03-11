@@ -1,8 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-const { HfInference } = require('@huggingface/inference');
+
+// Importar Servicios
+const supabaseService = require('./src/services/supabaseService');
+const hfService = require('./src/services/hfService');
+const shopManager = require('./src/services/shopManager');
 
 const app = express();
 app.use(cors());
@@ -10,25 +13,43 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// Configuración de Supabase
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Configuración Hugging Face
-// const hf = new HfInference(process.env.HF_TOKEN);
-
-app.get('/', async (req, res) => {
-    // Prueba rápida de conexión a la base de datos
-    const { data, error } = await supabase.from('productos').select('count');
-    res.json({ 
-        message: "Omni-626 API is running", 
-        status: "online",
-        database: error ? "error" : "connected",
-        db_details: error || data
-    });
+// RUTAS DE TIENDAS
+app.post('/api/tienda/iniciar', async (req, res) => {
+    const { tiendaId, nombre } = req.body;
+    try {
+        await shopManager.inicializarTienda(tiendaId, nombre);
+        res.json({ message: `Iniciando sesión para ${nombre}... Revisa la consola para el QR.` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
+// RUTAS DE PRUEBA
+app.get('/api/status', async (req, res) => {
+    try {
+        const { data, error } = await supabaseService.client.from('productos').select('count');
+        res.json({ 
+            status: "online", 
+            database: error ? "error" : "connected",
+            ai_ready: !!process.env.HF_TOKEN && !process.env.HF_TOKEN.includes('TU_HUGGING_FACE')
+        });
+    } catch (e) {
+        res.status(500).json({ status: "error", message: e.message });
+    }
+});
+
+// Endpoint para que el Dashboard vea los productos reales
+app.get('/api/productos', async (req, res) => {
+    try {
+        const productos = await supabaseService.getProductos();
+        res.json(productos);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// INICIO DEL SERVIDOR
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor Omni-626 iniciado en puerto ${PORT}`);
+    console.log(`🚀 Motor Omni-626 rugiendo en puerto ${PORT}`);
+    console.log(`📂 Backend estructurado y listo para el Experimento.`);
 });
