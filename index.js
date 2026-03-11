@@ -218,8 +218,8 @@ async function procesarMensaje(mensaje, telefono) {
         }).join('\n\n');
 
         const sistemaPrompt = `MISION: ${config.bot_persona}
-        RECUERDA: 
-        1. PRECIOS: Usa la tabla de precios tal cual. Si alguien pide 3 piezas, dale el precio de "min 3".
+        RECUERDA TUS REGLAS DE ORO COMO VENDEDOR ESTRELLA: 
+        1. PRECIOS Y VENTAS EN VOLUMEN: ¡Nunca ofrezcas solo 1 unidad de entrada! Si alguien pregunta el precio, DALE PRIMERO LA PROMOCIÓN MÁS ATRACTIVA (ej. "Llévate 2 por tal precio"). El precio por 1 unidad menciónalo como algo secundario para que sientan que la promo es mejor negocio.
         2. DESCUENTOS (RECOVERY): Si notas que tu catálogo ahora incluye precios etiquetados como "Recovery" o "Recuperación", el cliente es elegible para un descuento especial de seguimiento de 12 hr!. Ofrécele el precio Recovery con entusiasmo para cerrar la venta. Si no ves etiquetas Recovery, NO INVENTES LOS DESCUENTOS. Solo apégate a los normales.
         3. PRODUCTOS TIPO PRENDA: Consulta el STOCK DETALLADO. Si una talla/color está AGOTADO, dilo amablemente y ofrece alternativas. Confirma talla/color antes de cerrar.
         4. OBJECIONES: Si el cliente duda, usa la sección de "MANEJO DE OBJECIONES" y el "HACK DEL EXPERTO" del producto.
@@ -283,12 +283,19 @@ waClient.on('message', async (msg) => {
         // Enviar tarjetas de producto si aplica
         const catalogo = await getCatalogoSupabase();
         for (const prod of catalogo) {
-            if (safeReply.toLowerCase().includes(prod.nombre.toLowerCase()) && prod.imagen_url) {
+            // Buscamos si la IA o el usuario mencionaron este producto
+            if ((safeReply.toLowerCase().includes(prod.nombre.toLowerCase()) || msg.body.toLowerCase().includes(prod.nombre.toLowerCase())) && prod.imagen_url) {
                 try {
                     const media = await MessageMedia.fromUrl(prod.imagen_url);
-                    await waClient.sendMessage(msg.from, media, { caption: `🔥 *${prod.nombre}*\n${prod.beneficios || ''}\n\n🚚 Envío GRATIS!` });
-                } catch (e) {}
-                break;
+                    // Armamos un mini resumen (nombre, desc corta y beneficio)
+                    let textFoto = `🔥 *${prod.nombre}*\n`;
+                    if(prod.descripcion) textFoto += `${prod.descripcion}\n\n`;
+                    if(prod.beneficio_principal) textFoto += `✅ ${prod.beneficio_principal}\n\n`;
+                    textFoto += `🚚 ¡Envío GRATIS hasta hoy!`;
+
+                    await waClient.sendMessage(msg.from, media, { caption: textFoto });
+                } catch (e) { console.error("Error mandando foto:", e); }
+                break; // Mandamos max 1 foto por mensaje
             }
         }
     }
