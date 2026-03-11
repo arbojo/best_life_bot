@@ -1,5 +1,14 @@
+-- LIMPIEZA PREVIA TOTAL (Fuerza la eliminación de tablas y sus dependencias)
+DROP TABLE IF EXISTS memoria_ia CASCADE;
+DROP TABLE IF EXISTS logs_ventas CASCADE;
+DROP TABLE IF EXISTS pedidos CASCADE;
+DROP TABLE IF EXISTS clientes CASCADE;
+DROP TABLE IF EXISTS productos CASCADE;
+DROP TABLE IF EXISTS productos_precios CASCADE; -- Mundos extra que detectamos por el error
+DROP TABLE IF EXISTS productos_variantes CASCADE;
+
 -- TABLA DE PRODUCTOS
-CREATE TABLE IF NOT EXISTS productos (
+CREATE TABLE productos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre TEXT NOT NULL,
     descripcion TEXT,
