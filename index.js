@@ -318,22 +318,28 @@ waClient.on('message', async (msg) => {
 
         // Enviar tarjetas de producto si la IA generó el tag [IMG:NombreProducto]
         const catalogo = await getCatalogoSupabase();
-        for (const prod of catalogo) {
-            // Verificamos si la IA incluyó explícitamente el comando de imagen para este producto
-            const imgTrigger = `[IMG:${prod.nombre}]`.toLowerCase();
+        
+        // Extraer todos los tags [IMG:...] de la respuesta original de la IA
+        const imgTags = [...reply.matchAll(/\[IMG:\s*([^\]]+?)\s*\]/gi)];
+        
+        if (imgTags.length > 0) {
+            // Tomamos solo el primer tag que la IA haya generado
+            const requestedProductName = imgTags[0][1].toLowerCase().trim();
             
-            if (reply.toLowerCase().includes(imgTrigger) && prod.imagen_url) {
-                try {
-                    const media = await MessageMedia.fromUrl(prod.imagen_url);
-                    // Armamos un mini resumen (nombre, desc corta y beneficio)
-                    let textFoto = `🔥 *${prod.nombre}*\n`;
-                    if(prod.descripcion) textFoto += `${prod.descripcion}\n\n`;
-                    if(prod.beneficio_principal) textFoto += `✅ ${prod.beneficio_principal}\n\n`;
-                    textFoto += `🚚 ¡Envío GRATIS hasta hoy!`;
+            for (const prod of catalogo) {
+                if (prod.nombre.toLowerCase() === requestedProductName && prod.imagen_url) {
+                    try {
+                        const media = await MessageMedia.fromUrl(prod.imagen_url);
+                        // Armamos un mini resumen
+                        let textFoto = `🔥 *${prod.nombre}*\n`;
+                        if(prod.descripcion) textFoto += `${prod.descripcion}\n\n`;
+                        if(prod.beneficio_principal) textFoto += `✅ ${prod.beneficio_principal}\n\n`;
+                        textFoto += `🚚 ¡Envío GRATIS hasta hoy!`;
 
-                    await waClient.sendMessage(msg.from, media, { caption: textFoto });
-                } catch (e) { console.error("Error mandando foto:", e); }
-                break; // Mandamos max 1 foto por mensaje
+                        await waClient.sendMessage(msg.from, media, { caption: textFoto });
+                    } catch (e) { console.error("Error mandando foto:", e); }
+                    break; // Mandamos max 1 foto por mensaje
+                }
             }
         }
     }
