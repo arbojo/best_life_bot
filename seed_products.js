@@ -70,28 +70,45 @@ async function seed() {
     for (const p of products) {
         console.log(`\n📦 Procesando: ${p.nombre}...`);
         
-        // 1. Limpiar precios y variantes actuales
-        await supabase.from('productos_precios').delete().eq('producto_id', p.id);
-        await supabase.from('productos_variantes').delete().eq('producto_id', p.id);
+        // 1. Quitar ID fijo para dejar que Supabase asigne UUID o usar el existente
+        const { id: oldId, prices, variants, ...prodData } = p;
 
-        // 2. Actualizar o Insertar producto principal (UPSERT)
-        const { id, prices, variants, ...prodData } = p;
-        await supabase.from('productos').upsert({ id, ...prodData }, { onConflict: 'id' });
+        // 2. Upsert por NOMBRE para obtener el registro (y su UUID)
+        const { data: upsertedProduct, error: upsertError } = await supabase
+            .from('productos')
+            .upsert({ nombre: p.nombre, ...prodData }, { onConflict: 'nombre' })
+            .select()
+            .single();
 
-        // 3. Insertar nuevos precios
+        if (upsertError) {
+            console.error(`❌ Error en upsert de ${p.nombre}:`, upsertError.message);
+            continue;
+        }
+
+        const newId = upsertedProduct.id;
+
+        // 3. Limpiar y Re-insertar precios usando el nuevo ID (UUID)
+        await supabase.from('productos_precios').delete().eq('producto_id', newId);
         if (prices) {
-            await supabase.from('productos_precios').insert(prices.map(pr => ({ ...pr, producto_id: id })));
+            const { error: prError } = await supabase.from('productos_precios').insert(
+                prices.map(pr => ({ ...pr, producto_id: newId }))
+            );
+            if (prError) console.error(`   ❌ Error precios:`, prError.message);
         }
 
-        // 4. Insertar nuevas variantes
+        // 4. Limpiar y Re-insertar variantes
+        await supabase.from('productos_variantes').delete().eq('producto_id', newId);
         if (variants) {
-            await supabase.from('productos_variantes').insert(variants.map(v => ({ ...v, producto_id: id })));
+            const { error: vError } = await supabase.from('productos_variantes').insert(
+                variants.map(v => ({ ...v, producto_id: newId }))
+            );
+            if (vError) console.error(`   ❌ Error variantes:`, vError.message);
         }
 
-        console.log(`✅ ${p.nombre} actualizado correctamente.`);
+        console.log(`✅ ${p.nombre} sincronizado con ID: ${newId}`);
     }
 
-    console.log('\n✨ ¡Proceso completado! La base de datos está limpia.');
+    console.log('\n✨ ¡Proceso completado! La base de datos de Ohio está lista.');
 }
 
 seed();

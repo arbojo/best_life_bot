@@ -18,7 +18,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 const userContexts = new Map();
-let botMode = 0; // 0 = Simulación (No envía mensajes), 1 = Producción (Envía mensajes)
+let botMode = 0; // 0 = Modo Aprendizaje (Silencio + Registro de tus ventas), 1 = Producción (Mia responde)
 // --- Funciones de Base de Datos ---
 async function getCatalogoSupabase() {
     try {
@@ -336,7 +336,10 @@ waClient.on('qr', qr => qrcode.generate(qr, { small: true }));
 waClient.on('ready', () => console.log('✅ Bot Online'));
 
 waClient.on('message', async (msg) => {
-    if (msg.isStatus || botMode === 0) return;
+    if (msg.isStatus) return;
+    
+    // Si estamos en modo aprendizaje (0), no respondemos a clientes, pero sí procesamos para aprender
+    // Pero permitimos que el código siga si es un mensaje del usuario (fromMe)
     
     // Comando de Reinicio para Pruebas (Oculto)
     if (msg.body.trim().toUpperCase() === 'RESET') {
@@ -467,11 +470,26 @@ waClient.on('message', async (msg) => {
                         if(prod.beneficio_principal) textFoto += `✅ ${prod.beneficio_principal}\n\n`;
                         textFoto += `🚚 ¡Envío sin costo!\n💵 Pago contra entrega (Efectivo, Tarjeta en terminal o Transferencia)`;
 
-                        await waClient.sendMessage(msg.from, media, { caption: textFoto });
                     } catch (e) { console.error("Error mandando foto:", e); }
                     break; // Mandamos max 1 foto por mensaje
                 }
             }
+        }
+    }
+
+    // --- MODO APRENDIZAJE: Capturar tus respuestas manuales ---
+    if (msg.fromMe && botMode === 0) {
+        // Si tú respondes manualmente desde el cel, guardamos eso como "Respuesta Maestra"
+        console.log(`🧠 [MODO APRENDIZAJE] Registrando tu respuesta manual...`);
+        try {
+            // Nota: msg.to es el destinatario (el cliente), msg.body es tu respuesta
+            await supabase.from('logs_ventas').insert([{ 
+                cliente_tel: msg.to, 
+                mensaje: "[REPOSTA MANUAL DEL USUARIO]", 
+                respuesta: msg.body 
+            }]);
+        } catch (e) {
+            console.error("Error en Modo Aprendizaje:", e.message);
         }
     }
 });
