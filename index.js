@@ -337,9 +337,13 @@ waClient.on('message', async (msg) => {
                     .select('*')
                     .ilike('detalles_envio', `%${numeroTarget}%`)
                     .match({ estado: 'ESPERANDO_CONFIRMACION' })
-                    .order('created_at', { ascending: false })
+                    .order('timestamp', { ascending: false })
                     .limit(1)
                     .maybeSingle();
+
+                if (searchError) {
+                    console.error("Supabase Error en búsqueda:", searchError);
+                }
 
                 if (pedido) {
                     await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
