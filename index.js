@@ -332,15 +332,14 @@ waClient.on('message', async (msg) => {
             const numeroTarget = partes[1].replace(/\D/g, ''); 
             
             try {
-                // Buscamos el pedido en base al celular (guardado dentro de detalles_envio "Cliente | Dirección | Pago") 
-                // o usando un LIKE generoso para clientes vinculados
-                const { data: pedido } = await supabase.from('pedidos')
+                // Buscamos el pedido filtrando los detalles de envío que contienen el celular
+                const { data: pedido, error: searchError } = await supabase.from('pedidos')
                     .select('*')
-                    .or(`detalles_envio.ilike.%${numeroTarget}%,cliente_tel.ilike.%${numeroTarget}%`)
+                    .ilike('detalles_envio', `%${numeroTarget}%`)
                     .match({ estado: 'ESPERANDO_CONFIRMACION' })
                     .order('created_at', { ascending: false })
                     .limit(1)
-                    .single();
+                    .maybeSingle();
 
                 if (pedido) {
                     await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
