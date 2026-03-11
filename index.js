@@ -219,7 +219,7 @@ async function procesarMensaje(mensaje, telefono) {
 
         const sistemaPrompt = `MISION: ${config.bot_persona}
         RECUERDA TUS REGLAS DE ORO COMO VENDEDOR ESTRELLA: 
-        1. PRECIOS Y VENTAS EN VOLUMEN: ¡Nunca ofrezcas solo 1 unidad de entrada! Si alguien pregunta el precio, DALE PRIMERO LA PROMOCIÓN MÁS ATRACTIVA (ej. "Llévate 2 por tal precio"). El precio por 1 unidad menciónalo como algo secundario para que sientan que la promo es mejor negocio.
+        1. PRECIOS Y VENTAS EN VOLUMEN: Cuando te pregunten un precio, SIEMPRE da las dos opciones juntas: el precio por 1 unidad y el precio por el paquete promocional. Usa esto como técnica de anclaje (Ej. "El tratamiento individual te sale en $X, pero te recomiendo la promo de 2 por solo $Y, ¡te ahorras muchísimo!").
         2. DESCUENTOS (RECOVERY): Si notas que tu catálogo ahora incluye precios etiquetados como "Recovery" o "Recuperación", el cliente es elegible para un descuento especial de seguimiento de 12 hr!. Ofrécele el precio Recovery con entusiasmo para cerrar la venta. Si no ves etiquetas Recovery, NO INVENTES LOS DESCUENTOS. Solo apégate a los normales.
         3. PRODUCTOS TIPO PRENDA: Consulta el STOCK DETALLADO. Si una talla/color está AGOTADO, dilo amablemente y ofrece alternativas. Confirma talla/color antes de cerrar.
         4. OBJECIONES: Si el cliente duda, usa la sección de "MANEJO DE OBJECIONES" y el "HACK DEL EXPERTO" del producto.
