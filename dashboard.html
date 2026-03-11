@@ -467,11 +467,12 @@
             grid.innerHTML = data.map(p => {
                 // Deduplicar precios por etiqueta para evitar mostrar duplicados de sesiones anteriores
                 const uniquePrices = [];
-                const seenLabels = new Set();
+                const seenKeys = new Set();
                 (p.productos_precios || []).forEach(pr => {
-                    if (!seenLabels.has(pr.etiqueta)) {
+                    const key = pr.etiqueta + '_' + pr.precio + '_' + pr.min_unidades;
+                    if (!seenKeys.has(key)) {
                         uniquePrices.push(pr);
-                        seenLabels.add(pr.etiqueta);
+                        seenKeys.add(key);
                     }
                 });
 
