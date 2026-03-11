@@ -249,15 +249,13 @@ async function procesarMensaje(mensaje, telefono) {
         📍Municipio y CP:
         📍Número de piezas:
         
-        ¿Cuál sería su método de pago preferido (Efectivo/Transferencia/Tarjeta)?"
-        
-        12. EL COMANDO FINAL DE PEDIDO: Una vez que el cliente te haya respondido con ESOS DATOS y el método de pago, TU RESPUESTA FINAL INMEDIATA DENTRO DEL TEXTO DEBE CONTENER EL COMANDO EXACTO: [PEDIDO|Direccion del cliente|Nombre del Producto|Total en MXN].
+        12. EL COMANDO FINAL DE PEDIDO: Una vez que el cliente te haya respondido con ESOS DATOS y el método de pago, TU RESPUESTA FINAL INMEDIATA DENTRO DEL TEXTO DEBE CONTENER EL COMANDO EXACTO con 7 datos separados por la barra vertical (|): [PEDIDO|Nombre|Celular|Direccion Completa|Producto|Piezas|Pago|Total]. Al cliente dile amablemente algo como: "¡Perfecto! Estoy validando cobertura y disponibilidad con área de envíos, permíteme un momento para confirmarte tu entrega...".
         13. FORMATO DE RESÚMENES (CASCADA): Si el cliente te pide información de "todos" los productos o un resumen general, DEBES presentar las opciones en formato visual de "cascada", en una lista corta usando viñetas o emojis. Menciona SOLO el nombre del producto y su beneficio principal en un solo renglón. NO metas precios ni detalles largos en el resumen. Ejemplo del formato que debes usar:
         - Clean Nails (elimina hongo de la uña sin químicos)
         - Cloud Pet (quita pelito muerto y relaja a tu mascota)
         - Neurofeet (alivio a piernas cansadas, con várices o neuropatía)
         
-        PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Direccion|Producto|Total]`;
+        PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Nombre|Celular|Direccion|Producto|Piezas|Pago|Total]`;
 
         if (!userContexts.has(telefono)) {
             // Recuperar historial real de la DB para no empezar de cero
@@ -321,6 +319,44 @@ waClient.on('message', async (msg) => {
         return;
     }
 
+    // Autorización humana desde el grupo "Ventas"
+    if (msg.body.trim().toLowerCase().startsWith('enterado') && (msg.from.includes('@g.us') || msg.author)) {
+        const partes = msg.body.trim().split(' ');
+        if (partes.length >= 2) {
+            const numeroTarget = partes[1].replace(/\D/g, ''); 
+            const chatIdTarget = `${numeroTarget}@c.us`;
+            
+            try {
+                // Buscar el pedido pendiente (asumimos que la columna 'estado' existe en pedios o traemos de clientes)
+                const { data: pedido } = await supabase.from('pedidos')
+                    .select('*')
+                    .eq('cliente_tel', chatIdTarget)
+                    .match({ estado: 'ESPERANDO_CONFIRMACION' })
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (pedido) {
+                    await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
+                    await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', chatIdTarget);
+                    
+                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio}\n💵 *Total:* $${pedido.total}\n🚚 *Entrega:* Nuestro repartidor te contactará antes de ir a tu domicilio.\n\n¡Muchísimas gracias por tu confianza!`;
+                    await waClient.sendMessage(chatIdTarget, msjConfirmacion);
+                    await msg.reply(`✅ Enterado. Confirmación enviada al cliente ${numeroTarget}.`);
+                } else {
+                    await msg.reply(`❌ No encontré un pedido pendiente (ESPERANDO_CONFIRMACION) para el número ${numeroTarget}.`);
+                }
+            } catch (err) {
+                console.error("Error en autorización:", err);
+                await msg.reply(`❌ Ocurrió un error al procesar la confirmación.`);
+            }
+        }
+        return;
+    }
+    
+    // Ignoramos todos los demás mensajes que sucedan en grupos para que el bot no esté hablando a lo tonto
+    if (msg.from.includes('@g.us')) return;
+
     const reply = await procesarMensaje(msg.body, msg.from);
     if (botMode === 1) {
         // Limpiamos los comandos ocultos [PEDIDO|...] y [IMG:...] para que el cliente no los vea
@@ -329,7 +365,40 @@ waClient.on('message', async (msg) => {
         
         // Alertas y Pedidos
         if (reply.includes('[PEDIDO|')) {
-            await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', msg.from);
+            const pedidoMatch = reply.match(/\[PEDIDO\|(.*?)\]/i);
+            if (pedidoMatch) {
+                const parts = pedidoMatch[1].split('|');
+                const nombre = parts[0] || 'Cliente';
+                const celularInfo = parts[1] || 'N/A';
+                const direccion = parts[2] || 'N/A';
+                const producto = parts[3] || 'Producto';
+                const piezas = parts[4] || '1';
+                const pago = parts[5] || 'Acordar';
+                const total = parts[6] || 0;
+
+                const envioDetalle = `${nombre} | ${direccion} | Pago: ${pago}`;
+                const productoDetalle = `${piezas}x ${producto}`;
+                const numLimpio = msg.from.replace('@c.us', '');
+
+                // Guardar pedido como ESPERANDO_CONFIRMACION
+                const pResult = await supabase.from('pedidos').insert([{ 
+                    cliente_tel: msg.from, detalles_envio: envioDetalle, productos: productoDetalle, total: parseFloat(total) || 0, estado: 'ESPERANDO_CONFIRMACION'
+                }]);
+                
+                await supabase.from('clientes').update({ estado_seguimiento: 'ESPERANDO_CONFIRMACION', ultima_consulta: new Date().toISOString() }).eq('telefono', msg.from);
+
+                // Enviar la notificación al grupo de ventas
+                try {
+                    const chats = await waClient.getChats();
+                    const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
+                    if (grupoVentas) {
+                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n\n👤 *Cliente:* ${nombre}\n📱 *Celular proporcionado:* ${celularInfo}\n💬 *WhatsApp real:* ${numLimpio}\n📍 *Dirección:* ${direccion}\n📦 *Producto:* ${productoDetalle}\n💵 *Pago:* ${pago} (Monto: $${total})\n\n👉 *Para autorizar y mandar confirmación al cliente, responde aquí:*\nenterado ${numLimpio}`;
+                        await grupoVentas.sendMessage(alerta);
+                    } else {
+                        console.log('No se encontró el grupo "ventas" para alertar del pedido.');
+                    }
+                } catch(e) { console.error("Error al notificar al grupo:", e); }
+            }
         } else {
             await supabase.from('clientes').update({ ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', msg.from);
         }
