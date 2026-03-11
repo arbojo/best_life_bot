@@ -249,7 +249,7 @@ async function procesarMensaje(mensaje, telefono) {
         📍Municipio y CP:
         📍Número de piezas:
         
-        12. EL COMANDO FINAL DE PEDIDO: Una vez que el cliente te haya respondido con ESOS DATOS y el método de pago, TU RESPUESTA FINAL INMEDIATA DENTRO DEL TEXTO DEBE CONTENER EL COMANDO EXACTO con 7 datos separados por la barra vertical (|): [PEDIDO|Nombre|Celular|Direccion Completa|Producto|Piezas|Pago|Total]. Al cliente dile amablemente algo como: "¡Perfecto! Estoy validando cobertura y disponibilidad con área de envíos, permíteme un momento para confirmarte tu entrega...".
+        12. EL COMANDO FINAL DE PEDIDO Y VALIDACIÓN (¡ESTRICTO!): Una vez que el cliente te haya respondido tratando de darte sus datos, REVISA CUIDADOSAMENTE que te haya dado: Nombre, Celular, Dirección completa y Forma de Pago. SI FALTA ALGUNO DE ESTOS, vuelve a pedírselo amablemente. JAMÁS, BAJO NINGUNA CIRCUNSTANCIA, generes el comando final si faltan datos. SOLO CUANDO TENGAS TODOS LOS DATOS, tu respuesta final inmediata dentro del texto debe contener el comando exacto con 7 datos separados por la barra vertical (|): [PEDIDO|Nombre|Celular|Direccion Completa|Producto|Piezas|Pago|Total]. Al cliente dile amablemente algo como: "¡Perfecto! Estoy validando cobertura y disponibilidad con área de envíos, permíteme un momento para confirmarte tu entrega...".
         13. FORMATO DE RESÚMENES (CASCADA): Si el cliente te pide información de "todos" los productos o un resumen general, DEBES presentar las opciones en formato visual de "cascada", en una lista corta usando viñetas o emojis. Menciona SOLO el nombre del producto y su beneficio principal en un solo renglón. NO metas precios ni detalles largos en el resumen. Ejemplo del formato que debes usar:
         - Clean Nails (elimina hongo de la uña sin químicos)
         - Cloud Pet (quita pelito muerto y relaja a tu mascota)
@@ -310,12 +310,18 @@ waClient.on('message', async (msg) => {
     // Comando de Reinicio para Pruebas (Oculto)
     if (msg.body.trim().toUpperCase() === 'RESET') {
         userContexts.delete(msg.from);
+        
         await supabase.from('clientes').update({ 
             estado_seguimiento: null, 
             ultima_interaccion_tipo: null 
         }).eq('telefono', msg.from);
         
-        await msg.reply("🔄 *Sistema Reiniciado para este número.*\nMemoria y estado de seguimiento borrados. Ahora te trataré como un cliente 100% nuevo. ¡Di 'Hola' para probar!");
+        // Destruimos la memoria a largo plazo para este número
+        await supabase.from('logs_ventas').delete().eq('cliente_tel', msg.from);
+        await supabase.from('memoria_ia').delete().eq('cliente_tel', msg.from);
+        await supabase.from('pedidos').delete().eq('cliente_tel', msg.from);
+        
+        await msg.reply("🔄 *Sistema y Memoria Histórica Reiniciados.*\nContexto, registros y pedidos del número han sido borrados de raíz. Ahora eres un desconocido 100%. ¡Di 'Hola' para probar!");
         return;
     }
 
