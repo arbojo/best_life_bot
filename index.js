@@ -249,7 +249,7 @@ async function procesarMensaje(mensaje, telefono) {
         📍Municipio y CP:
         📍Número de piezas:
         
-        12. EL COMANDO FINAL DE PEDIDO Y VALIDACIÓN (¡ESTRICTO!): Una vez que el cliente te haya respondido tratando de darte sus datos, REVISA CUIDADOSAMENTE que te haya dado: Nombre, Celular, Dirección completa y Forma de Pago. SI FALTA ALGUNO DE ESTOS, vuelve a pedírselo amablemente. JAMÁS, BAJO NINGUNA CIRCUNSTANCIA, generes el comando final si faltan datos. SOLO CUANDO TENGAS TODOS LOS DATOS, tu respuesta final inmediata dentro del texto debe contener el comando exacto con 7 datos separados por la barra vertical (|): [PEDIDO|Nombre|Celular|Direccion Completa|Producto|Piezas|Pago|Total]. Al cliente dile amablemente algo como: "¡Perfecto! Estoy validando cobertura y disponibilidad con área de envíos, permíteme un momento para confirmarte tu entrega...".
+        12. EL COMANDO FINAL DE PEDIDO Y VALIDACIÓN (¡ESTRICTO!): Una vez que el cliente te haya respondido tratando de darte sus datos, REVISA CUIDADOSAMENTE que te haya dado: Nombre, Celular, Dirección completa y Forma de Pago. SI FALTA ALGUNO DE ESTOS, vuelve a pedírselo amablemente. JAMÁS, BAJO NINGUNA CIRCUNSTANCIA, generes el comando final si faltan datos. SOLO CUANDO TENGAS TODOS LOS DATOS, tu respuesta final inmediata dentro del texto debe contener el comando exacto con 8 datos separados por la barra vertical (|): [PEDIDO|Nombre|Celular|Direccion Completa|Producto|Piezas|Pago|Total|FechaEntrega]. Para FechaEntrega: si el cliente aceptó la entrega hoy, escribe "Hoy mismo"; si aceptó mañana, escribe "Mañana"; si es de otra ciudad, escribe "A coordinar". Al cliente dile amablemente algo como: "¡Perfecto! Estoy validando cobertura y disponibilidad con área de envíos, permíteme un momento para confirmarte tu entrega...".
         13. FORMATO DE RESÚMENES (CASCADA): Si el cliente te pide información de "todos" los productos o un resumen general, DEBES presentar las opciones en formato visual de "cascada", en una lista corta usando viñetas o emojis. Menciona SOLO el nombre del producto y su beneficio principal en un solo renglón. NO metas precios ni detalles largos en el resumen. Ejemplo del formato que debes usar:
         - Clean Nails (elimina hongo de la uña sin químicos)
         - Cloud Pet (quita pelito muerto y relaja a tu mascota)
@@ -259,7 +259,7 @@ async function procesarMensaje(mensaje, telefono) {
         
         No des sermones interminables.
 
-        PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Nombre|Celular|Direccion|Producto|Piezas|Pago|Total]`;
+        PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Nombre|Celular|Direccion|Producto|Piezas|Pago|Total|FechaEntrega]`;
 
         if (!userContexts.has(telefono)) {
             // Recuperar historial real de la DB para no empezar de cero
@@ -353,7 +353,7 @@ waClient.on('message', async (msg) => {
                     await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
                     await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', pedido.cliente_tel);
                     
-                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio}\n💵 *Total:* $${pedido.total}\n🚚 *Entrega:* Nuestro repartidor te contactará antes de ir a tu domicilio.\n\n¡Muchísimas gracias por tu confianza!`;
+                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio.split(' | Pago:')[0]}\n🚚 *Entrega:* ${pedido.detalles_envio.includes('Entrega:') ? pedido.detalles_envio.split('Entrega:')[1].trim() : 'A coordinar'}\n💵 *Monto a pagar:* $${pedido.total}\n💳 *Formas de pago:* Efectivo, Tarjeta en terminal o Transferencia\n\n¡Muchísimas gracias por tu compra! Nuestro repartidor te contactará antes de llegar. 📞`;
                     await waClient.sendMessage(pedido.cliente_tel, msjConfirmacion);
                     await msg.reply(`✅ Enterado. Confirmación enviada exitosamente al cliente.`);
                 } else {
@@ -388,8 +388,9 @@ waClient.on('message', async (msg) => {
                 const piezas = parts[4] || '1';
                 const pago = parts[5] || 'Acordar';
                 const total = parts[6] || 0;
+                const fechaEntrega = parts[7] || 'A coordinar';
 
-                const envioDetalle = `${nombre} | ${celularInfo} | ${direccion} | Pago: ${pago}`;
+                const envioDetalle = `${nombre} | ${celularInfo} | ${direccion} | Pago: ${pago} | Entrega: ${fechaEntrega}`;
                 const productoDetalle = `${piezas}x ${producto}`;
                 
                 // Usaremos exclusivamente el celular corto que dio el cliente como clave operativa para los humanos
@@ -407,7 +408,7 @@ waClient.on('message', async (msg) => {
                     const chats = await waClient.getChats();
                     const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
                     if (grupoVentas) {
-                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n\n👤 *Cliente:* ${nombre}\n📱 *Celular:* ${celularInfo}\n📍 *Dirección:* ${direccion}\n📦 *Producto:* ${productoDetalle}\n💵 *Pago:* ${pago} (Monto: $${total})\n\n👉 *Para autorizar y mandar confirmación al cliente, responde aquí:*\nenterado ${numLimpio}`;
+                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n\n👤 *Cliente:* ${nombre}\n📱 *Celular:* ${celularInfo}\n📍 *Dirección:* ${direccion}\n📦 *Producto:* ${productoDetalle}\n💵 *Pago:* ${pago} (Monto: $${total})\n🚚 *Entrega:* ${fechaEntrega}\n\n👉 *Para autorizar y mandar confirmación al cliente, responde aquí:*\nenterado ${numLimpio}`;
                         await grupoVentas.sendMessage(alerta);
                     } else {
                         console.log('No se encontró el grupo "ventas" para alertar del pedido.');
