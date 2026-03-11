@@ -216,6 +216,11 @@ async function procesarMensaje(mensaje, telefono) {
             if (p.reglas_especiales) pInfo += `\n  - REGLAS DE VENTA: ${p.reglas_especiales}`;
             return pInfo;
         }).join('\n\n');
+        
+        console.log("-----------------------------------------");
+        console.log("PROMPT PRODUCTS LOG:");
+        console.log(listadoProductos);
+        console.log("-----------------------------------------");
 
         const sistemaPrompt = `MISION BASE: ${config.bot_persona}
         

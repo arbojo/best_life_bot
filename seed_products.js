@@ -74,9 +74,9 @@ async function seed() {
         await supabase.from('productos_precios').delete().eq('producto_id', p.id);
         await supabase.from('productos_variantes').delete().eq('producto_id', p.id);
 
-        // 2. Actualizar producto principal
+        // 2. Actualizar o Insertar producto principal (UPSERT)
         const { id, prices, variants, ...prodData } = p;
-        await supabase.from('productos').update(prodData).eq('id', id);
+        await supabase.from('productos').upsert({ id, ...prodData }, { onConflict: 'id' });
 
         // 3. Insertar nuevos precios
         if (prices) {
