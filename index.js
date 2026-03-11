@@ -237,6 +237,7 @@ async function procesarMensaje(mensaje, telefono) {
         5. PRODUCTOS TIPO PRENDA: Consulta el STOCK DETALLADO. Si una talla/color está AGOTADO, dilo amablemente y ofrece alternativas. Confirma talla/color antes de cerrar.
         6. OBJECIONES: Si el cliente duda, usa la sección de "MANEJO DE OBJECIONES" y el "HACK DEL EXPERTO" del producto.
         7. REGLAS DE VENTA: Respeta las reglas (ej: solo paquetes) siempre con amabilidad.
+        8. ENVÍO DE FOTOS (¡MUY IMPORTANTE!): NUNCA mandes fotos en el saludo inicial. Cuando el cliente te PREGUNTE por los detalles, precio o beneficios de UN producto en específico, DEBES incluir al final de tu mensaje este comando exacto: [IMG:Nombre Exacto Del Producto]. Ejemplo: [IMG:Clean Nails]. Solo úsalo UNA vez cuando estés presentando el producto para que el sistema le dispare la foto.
         
         PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Direccion|Producto|Total]`;
 
@@ -304,7 +305,8 @@ waClient.on('message', async (msg) => {
 
     const reply = await procesarMensaje(msg.body, msg.from);
     if (botMode === 1) {
-        const safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/g, '').trim();
+        // Limpiamos los comandos ocultos [PEDIDO|...] y [IMG:...] para que el cliente no los vea
+        const safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/gi, '').replace(/\[IMG:[^\]]+\]/gi, '').trim();
         if (safeReply) await msg.reply(safeReply);
         
         // Alertas y Pedidos
@@ -314,11 +316,13 @@ waClient.on('message', async (msg) => {
             await supabase.from('clientes').update({ ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', msg.from);
         }
 
-        // Enviar tarjetas de producto si aplica
+        // Enviar tarjetas de producto si la IA generó el tag [IMG:NombreProducto]
         const catalogo = await getCatalogoSupabase();
         for (const prod of catalogo) {
-            // Buscamos si la IA o el usuario mencionaron este producto
-            if ((safeReply.toLowerCase().includes(prod.nombre.toLowerCase()) || msg.body.toLowerCase().includes(prod.nombre.toLowerCase())) && prod.imagen_url) {
+            // Verificamos si la IA incluyó explícitamente el comando de imagen para este producto
+            const imgTrigger = `[IMG:${prod.nombre}]`.toLowerCase();
+            
+            if (reply.toLowerCase().includes(imgTrigger) && prod.imagen_url) {
                 try {
                     const media = await MessageMedia.fromUrl(prod.imagen_url);
                     // Armamos un mini resumen (nombre, desc corta y beneficio)
