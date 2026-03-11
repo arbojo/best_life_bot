@@ -237,7 +237,7 @@ async function procesarMensaje(mensaje, telefono) {
         5. PRODUCTOS TIPO PRENDA: Consulta el STOCK DETALLADO. Si una talla/color está AGOTADO, dilo amablemente y ofrece alternativas. Confirma talla/color antes de cerrar.
         6. OBJECIONES: Si el cliente duda, usa la sección de "MANEJO DE OBJECIONES" y el "HACK DEL EXPERTO" del producto.
         7. REGLAS DE VENTA: Respeta las reglas (ej: solo paquetes) siempre con amabilidad.
-        8. ENVÍO DE FOTOS (¡MUY IMPORTANTE!): NUNCA mandes fotos en el saludo inicial. Cuando el cliente te PREGUNTE por los detalles, precio o beneficios de UN producto en específico, DEBES incluir al final de tu mensaje este comando exacto: [IMG:Nombre Exacto Del Producto]. Ejemplo: [IMG:Clean Nails]. Solo úsalo UNA vez cuando estés presentando el producto para que el sistema le dispare la foto.
+        8. ENVÍO DE FOTOS (¡MUY IMPORTANTE!): NUNCA mandes fotos en el saludo inicial ni cuando te pidan información "de todos" los productos o un resumen general. Solamente cuando la charla trate EXCLUSIVAMENTE de un solo producto y estés dando sus detalles, precio o beneficios, cierra tu mensaje con este comando exacto: [IMG:Nombre Exacto Del Producto]. Ejemplo: [IMG:Clean Nails]. NO LO USES si mencionas 2 o más productos en tu respuesta.
         
         PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Direccion|Producto|Total]`;
 
