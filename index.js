@@ -324,13 +324,12 @@ waClient.on('message', async (msg) => {
         const partes = msg.body.trim().split(' ');
         if (partes.length >= 2) {
             const numeroTarget = partes[1].replace(/\D/g, ''); 
-            const chatIdTarget = `${numeroTarget}@c.us`;
             
             try {
-                // Buscar el pedido pendiente (asumimos que la columna 'estado' existe en pedios o traemos de clientes)
+                // Buscar el pedido pendiente (permitimos sufijos @c.us o @lid)
                 const { data: pedido } = await supabase.from('pedidos')
                     .select('*')
-                    .eq('cliente_tel', chatIdTarget)
+                    .ilike('cliente_tel', `${numeroTarget}%`)
                     .match({ estado: 'ESPERANDO_CONFIRMACION' })
                     .order('created_at', { ascending: false })
                     .limit(1)
@@ -338,11 +337,11 @@ waClient.on('message', async (msg) => {
 
                 if (pedido) {
                     await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
-                    await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', chatIdTarget);
+                    await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', pedido.cliente_tel);
                     
                     const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio}\n💵 *Total:* $${pedido.total}\n🚚 *Entrega:* Nuestro repartidor te contactará antes de ir a tu domicilio.\n\n¡Muchísimas gracias por tu confianza!`;
-                    await waClient.sendMessage(chatIdTarget, msjConfirmacion);
-                    await msg.reply(`✅ Enterado. Confirmación enviada al cliente ${numeroTarget}.`);
+                    await waClient.sendMessage(pedido.cliente_tel, msjConfirmacion);
+                    await msg.reply(`✅ Enterado. Confirmación enviada exitosamente al cliente.`);
                 } else {
                     await msg.reply(`❌ No encontré un pedido pendiente (ESPERANDO_CONFIRMACION) para el número ${numeroTarget}.`);
                 }
@@ -378,7 +377,8 @@ waClient.on('message', async (msg) => {
 
                 const envioDetalle = `${nombre} | ${direccion} | Pago: ${pago}`;
                 const productoDetalle = `${piezas}x ${producto}`;
-                const numLimpio = msg.from.replace('@c.us', '');
+                // Guardamos numLimpio quitando cualquier dominio posterior al @ para imprimirlo claro en el mensaje
+                const numLimpio = msg.from.split('@')[0];
 
                 // Guardar pedido como ESPERANDO_CONFIRMACION
                 const pResult = await supabase.from('pedidos').insert([{ 
