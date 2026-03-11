@@ -289,6 +289,19 @@ waClient.on('ready', () => console.log('✅ Bot Online'));
 
 waClient.on('message', async (msg) => {
     if (msg.isStatus || botMode === 0) return;
+    
+    // Comando de Reinicio para Pruebas (Oculto)
+    if (msg.body.trim().toUpperCase() === 'RESET') {
+        userContexts.delete(msg.from);
+        await supabase.from('clientes').update({ 
+            estado_seguimiento: null, 
+            ultima_interaccion_tipo: null 
+        }).eq('telefono', msg.from);
+        
+        await msg.reply("🔄 *Sistema Reiniciado para este número.*\nMemoria y estado de seguimiento borrados. Ahora te trataré como un cliente 100% nuevo. ¡Di 'Hola' para probar!");
+        return;
+    }
+
     const reply = await procesarMensaje(msg.body, msg.from);
     if (botMode === 1) {
         const safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/g, '').trim();
