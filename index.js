@@ -340,8 +340,18 @@ ${ganchoEnvio} es la fecha de entrega sugerida.`;
 
 // --- WhatsApp Client ---
 const waClient = new Client({ authStrategy: new LocalAuth(), puppeteer: { headless: true, args: ['--no-sandbox'] } });
-waClient.on('qr', qr => qrcode.generate(qr, { small: true }));
-waClient.on('ready', () => console.log('✅ Bot Online'));
+waClient.on('qr', qr => {
+    console.log('⚠️ [WWS] Sesión no iniciada. Escanea el código QR:');
+    qrcode.generate(qr, { small: true });
+});
+
+waClient.on('ready', () => {
+    console.log('✅ Bot Online y Listo para WhatsApp');
+});
+
+waClient.on('auth_failure', msg => console.error('❌ [WWS] Error de Autenticación:', msg));
+waClient.on('disconnected', reason => console.warn('⚠️ [WWS] Sesión Cerrada:', reason));
+waClient.on('loading_screen', (percent, message) => console.log('⏳ [WWS] Cargando:', percent + '%', message));
 
 waClient.on('message', async (msg) => {
     if (msg.isStatus) return;
