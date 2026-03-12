@@ -81,7 +81,9 @@ async function seed() {
         const { id: oldId, prices, variants, ...allProdData } = p;
 
         // Filtrar solo data válida según lo detectado en el primer select
-        const prodData = {};
+        const prodData = {
+            precio: prices && prices.length > 0 ? prices[0].precio : 0
+        };
         for(const k in allProdData) {
             if(validColumns.includes(k)) prodData[k] = allProdData[k];
         }
