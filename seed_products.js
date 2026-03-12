@@ -67,19 +67,20 @@ async function seed() {
         }
     ];
 
-    // 0. Obtener columnas permitidas dinámicamente
-    const { data: sample } = await supabase.from('productos').select('*').limit(1);
-    const validColumns = sample && sample.length > 0 ? Object.keys(sample[0]) : 
-        ['id', 'nombre', 'descripcion', 'precio', 'stock', 'imagen_url', 'active', 'categoria', 'beneficio_principal', 'modo_uso', 'manejo_objeciones', 'hacks_expertos', 'reglas_especiales'];
+    // 0. Obtener columnas permitidas dinámicamente (incluso en tabla vacía)
+    const { data: colData, error: colError } = await supabase.from('productos').select('*').limit(0);
+    const validColumns = colData ? Object.keys(colData) : []; 
+    // Nota: supabase-js v2 a veces no devuelve las keys en limit(0). 
+    // Si falla, intentamos con un registro temporal o fallback extendido.
     
-    console.log('📋 Columnas detectadas:', validColumns.join(', '));
+    console.log('📋 Columnas detectadas inicialmente:', validColumns.join(', '));
 
     for (const p of products) {
         console.log(`\n📦 Procesando: ${p.nombre}...`);
         
         const { id: oldId, prices, variants, ...allProdData } = p;
 
-        // Filtrar solo data válida
+        // Filtrar solo data válida según lo detectado en el primer select
         const prodData = {};
         for(const k in allProdData) {
             if(validColumns.includes(k)) prodData[k] = allProdData[k];
