@@ -67,13 +67,26 @@ async function seed() {
         }
     ];
 
+    // 0. Obtener columnas permitidas dinámicamente
+    const { data: sample } = await supabase.from('productos').select('*').limit(1);
+    const validColumns = sample && sample.length > 0 ? Object.keys(sample[0]) : 
+        ['id', 'nombre', 'descripcion', 'precio', 'stock', 'imagen_url', 'active', 'categoria', 'beneficio_principal', 'modo_uso', 'manejo_objeciones', 'hacks_expertos', 'reglas_especiales'];
+    
+    console.log('📋 Columnas detectadas:', validColumns.join(', '));
+
     for (const p of products) {
         console.log(`\n📦 Procesando: ${p.nombre}...`);
         
-        const { id: oldId, prices, variants, ...prodData } = p;
+        const { id: oldId, prices, variants, ...allProdData } = p;
+
+        // Filtrar solo data válida
+        const prodData = {};
+        for(const k in allProdData) {
+            if(validColumns.includes(k)) prodData[k] = allProdData[k];
+        }
 
         // 1. Buscar si ya existe por nombre
-        let { data: existing, error: fetchError } = await supabase
+        let { data: existing } = await supabase
             .from('productos')
             .select('id')
             .eq('nombre', p.nombre)
