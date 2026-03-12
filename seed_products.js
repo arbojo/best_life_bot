@@ -4,151 +4,124 @@ require('dotenv').config();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 async function seed() {
-    console.log('🌱 Reseteando y sembrando productos con datos limpios...');
+    console.log('🌱 Reseteando y sembrando productos con datos limpios (Nuevo Esquema)...');
 
     const products = [
         {
-            id: 3,
-            nombre: 'Neurofeet',
-            categoria: 'prenda',
-            descripcion: 'Calcetas de compresión diseñadas para aliviar piernas cansadas, neuropatía y várices. Se venden por pares.',
-            stock: 23,
-            beneficio_principal: 'Alivio instantáneo del dolor y mejor circulación. Diseño que no transparenta, ideal para uso diario.',
-            modo_uso: 'Colocar como calcetín común, asegurando que la compresión llegue desde el tobillo hasta la pantorrilla.',
-            manejo_objeciones: 'Si dicen que están caras, recuérdales que es una inversión en su salud y que duran meses. Ofrece el Recovery si es necesario.',
-            hacks_expertos: 'Úsalas durante el día para evitar pesadez al final de la jornada. Lavar a mano para conservar la compresión.',
-            reglas_especiales: 'Paquetes de 3 y 5 pares. No se vende individual una sola calceta.',
-            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/neurofeet/main.jpg',
+            name: 'Neurofeet',
+            category: 'prenda',
+            description: 'Calcetas de compresión diseñadas para aliviar piernas cansadas, neuropatía y várices. Se venden por pares.',
+            main_benefit: 'Alivio instantáneo del dolor y mejor circulación. Diseño que no transparenta, ideal para uso diario.',
+            usage_instructions: 'Colocar como calcetín común, asegurando que la compresión llegue desde el tobillo hasta la pantorrilla.',
+            objection_handling: 'Si dicen que están caras, recuérdales que es una inversión en su salud y que duran meses. Ofrece el Recovery si es necesario.',
+            expert_hacks: 'Úsalas durante el día para evitar pesadez al final de la jornada. Lavar a mano para conservar la compresión.',
+            is_active: true,
             prices: [
-                { etiqueta: '3 Pares', precio: 449, min_unidades: 3 },
-                { etiqueta: '5 Pares', precio: 599, min_unidades: 5 },
-                { etiqueta: 'Recovery (3 pares)', precio: 404.10, min_unidades: 3 },
-                { etiqueta: 'Recovery (5 pares)', precio: 539.10, min_unidades: 5 }
+                { label: '3 Pares', price: 449, min_quantity: 3, is_recovery: false },
+                { label: '5 Pares', price: 599, min_quantity: 5, is_recovery: false },
+                { label: 'Recovery (3 pares)', price: 404.10, min_quantity: 3, is_recovery: true },
+                { label: 'Recovery (5 pares)', price: 539.10, min_quantity: 5, is_recovery: true }
             ],
             variants: [
-                { nombre: 'S/M', stock: 12 },
-                { nombre: 'L/XL', stock: 11 }
+                { name: 'S/M', stock_quantity: 12 },
+                { name: 'L/XL', stock_quantity: 11 }
             ]
         },
         {
-            id: 2,
-            nombre: 'Clean Nails',
-            categoria: 'aparato',
-            descripcion: 'Dispositivo con tecnología de Luz UV e Infraroja diseñado para eliminar el hongo en la uña de forma efectiva y segura.',
-            stock: 15,
-            beneficio_principal: '✨ Cambio de coloración desde el día 5\n✅ Sin dolor\n🏆 Resultados garantizados',
-            modo_uso: 'Colocar sobre la uña afectada por 7 minutos diarios. El aparato se apaga solo al terminar.',
-            manejo_objeciones: 'Es mucho más barato que ir al podólogo varias veces. Funciona en uñas de manos y pies.',
-            hacks_expertos: 'El tratamiento completo requiere un ciclo de crecimiento de la uña (meses) para que crezca sana. ¡No lo suspendas al ver el primer cambio!',
-            reglas_especiales: 'Garantía de 30 días contra defectos de fábrica.',
-            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/clean-nails/main.jpg',
+            name: 'Clean Nails',
+            category: 'aparato',
+            description: 'Dispositivo con tecnología de Luz UV e Infraroja diseñado para eliminar el hongo en la uña de forma efectiva y segura.',
+            main_benefit: '✨ Cambio de coloración desde el día 5\n✅ Sin dolor\n🏆 Resultados garantizados',
+            usage_instructions: 'Colocar sobre la uña afectada por 7 minutos diarios. El aparato se apaga solo al terminar.',
+            objection_handling: 'Es mucho más barato que ir al podólogo varias veces. Funciona en uñas de manos y pies.',
+            expert_hacks: 'El tratamiento completo requiere un ciclo de crecimiento de la uña (meses) para que crezca sana. ¡No lo suspendas al ver el primer cambio!',
+            is_active: true,
             prices: [
-                { etiqueta: '1 Pieza', precio: 449, min_unidades: 1 },
-                { etiqueta: 'Promo 2 piezas', precio: 599, min_unidades: 2 },
-                { etiqueta: 'Recovery (1 pieza)', precio: 404.10, min_unidades: 1 },
-                { etiqueta: 'Recovery (2 piezas)', precio: 539.10, min_unidades: 2 }
+                { label: '1 Pieza', price: 449, min_quantity: 1, is_recovery: false },
+                { label: 'Promo 2 piezas', price: 599, min_quantity: 2, is_recovery: false },
+                { label: 'Recovery (1 pieza)', price: 404.10, min_quantity: 1, is_recovery: true },
+                { label: 'Recovery (2 piezas)', price: 539.10, min_quantity: 2, is_recovery: true }
             ]
         },
         {
-            id: 1,
-            nombre: 'Cloud Pet',
-            categoria: 'aparato',
-            descripcion: 'Cepillo premium de vapor ultrasónico para mascotas. Es una herramienta de aseo que usa vapor frío para limpiar y masajear.',
-            stock: 8,
-            beneficio_principal: 'Elimina el pelo suelto mientras relaja a tu mascota con un masaje de vapor frío.',
-            modo_uso: 'Llenar con agua, encender el vapor y cepillar suavemente a favor del pelo.',
-            manejo_objeciones: 'No quema a la mascota (el vapor es frío). Facilita mucho la limpieza sin bañar con jabón.',
-            hacks_expertos: 'Añade una gota de aceite esencial apto para mascotas en el agua para un aroma increíble.',
-            reglas_especiales: 'Carga USB incluida.',
-            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/cloud-pet/main.jpg',
+            name: 'Cloud Pet',
+            category: 'aparato',
+            description: 'Cepillo premium de vapor ultrasónico para mascotas. Es una herramienta de aseo que usa vapor frío para limpiar y masajear.',
+            main_benefit: 'Elimina el pelo suelto mientras relaja a tu mascota con un masaje de vapor frío.',
+            usage_instructions: 'Llenar con agua, encender el vapor y cepillar suavemente a favor del pelo.',
+            objection_handling: 'No quema a la mascota (el vapor es frío). Facilita mucho la limpieza sin bañar con jabón.',
+            expert_hacks: 'Añade una gota de aceite esencial apto para mascotas en el agua para un aroma increíble.',
+            is_active: true,
             prices: [
-                { etiqueta: '1 Unidad', precio: 349, min_unidades: 1 },
-                { etiqueta: 'Promo 2 Unidades', precio: 499, min_unidades: 2 },
-                { etiqueta: 'Recovery (1 unidad)', precio: 314.10, min_unidades: 1 },
-                { etiqueta: 'Recovery (2 unidades)', precio: 449.10, min_unidades: 2 }
+                { label: '1 Unidad', price: 349, min_quantity: 1, is_recovery: false },
+                { label: 'Promo 2 Unidades', price: 499, min_quantity: 2, is_recovery: false },
+                { label: 'Recovery (1 unidad)', price: 314.10, min_quantity: 1, is_recovery: true },
+                { label: 'Recovery (2 unidades)', price: 449.10, min_quantity: 2, is_recovery: true }
             ]
         }
     ];
 
-    // 0. Obtener columnas permitidas dinámicamente (incluso en tabla vacía)
-    const { data: colData, error: colError } = await supabase.from('productos').select('*').limit(0);
-    const validColumns = colData ? Object.keys(colData) : []; 
-    // Nota: supabase-js v2 a veces no devuelve las keys en limit(0). 
-    // Si falla, intentamos con un registro temporal o fallback extendido.
-    
-    console.log('📋 Columnas detectadas inicialmente:', validColumns.join(', '));
-
     for (const p of products) {
-        console.log(`\n📦 Procesando: ${p.nombre}...`);
+        console.log(`\n📦 Procesando: ${p.name}...`);
         
-        const { id: oldId, prices, variants, ...allProdData } = p;
+        const { prices, variants, ...prodData } = p;
 
-        // Filtrar solo data válida según lo detectado en el primer select
-        const prodData = {
-            precio: prices && prices.length > 0 ? prices[0].precio : 0
-        };
-        for(const k in allProdData) {
-            if(validColumns.includes(k)) prodData[k] = allProdData[k];
-        }
-
-        // 1. Buscar si ya existe por nombre
+        // 1. Buscar si ya existe por nombre en new_products
         let { data: existing } = await supabase
-            .from('productos')
+            .from('new_products')
             .select('id')
-            .eq('nombre', p.nombre)
+            .eq('name', p.name)
             .maybeSingle();
 
-        let newId;
+        let productId;
 
         if (existing) {
-            // 2a. Actualizar existente
             const { data: updated, error: updateError } = await supabase
-                .from('productos')
+                .from('new_products')
                 .update(prodData)
                 .eq('id', existing.id)
                 .select()
                 .single();
             if (updateError) {
-                console.error(`❌ Error actualizando ${p.nombre}:`, updateError.message);
+                console.error(`❌ Error actualizando ${p.name}:`, updateError.message);
                 continue;
             }
-            newId = updated.id;
+            productId = updated.id;
         } else {
-            // 2b. Insertar nuevo
             const { data: inserted, error: insertError } = await supabase
-                .from('productos')
-                .insert({ nombre: p.nombre, ...prodData })
+                .from('new_products')
+                .insert(prodData)
                 .select()
                 .single();
             if (insertError) {
-                console.error(`❌ Error insertando ${p.nombre}:`, insertError.message);
+                console.error(`❌ Error insertando ${p.name}:`, insertError.message);
                 continue;
             }
-            newId = inserted.id;
+            productId = inserted.id;
         }
 
-        // 3. Limpiar y Re-insertar precios usando el ID real
-        await supabase.from('productos_precios').delete().eq('producto_id', newId);
+        // 2. Limpiar y Re-insertar precios
+        await supabase.from('product_prices').delete().eq('product_id', productId);
         if (prices) {
-            const { error: prError } = await supabase.from('productos_precios').insert(
-                prices.map(pr => ({ ...pr, producto_id: newId }))
+            const { error: prError } = await supabase.from('product_prices').insert(
+                prices.map(pr => ({ ...pr, product_id: productId }))
             );
             if (prError) console.error(`   ❌ Error precios:`, prError.message);
         }
 
-        // 4. Limpiar y Re-insertar variantes
-        await supabase.from('productos_variantes').delete().eq('producto_id', newId);
+        // 3. Limpiar y Re-insertar variantes
+        await supabase.from('product_variants').delete().eq('product_id', productId);
         if (variants) {
-            const { error: vError } = await supabase.from('productos_variantes').insert(
-                variants.map(v => ({ ...v, producto_id: newId }))
+            const { error: vError } = await supabase.from('product_variants').insert(
+                variants.map(v => ({ ...v, product_id: productId }))
             );
             if (vError) console.error(`   ❌ Error variantes:`, vError.message);
         }
 
-        console.log(`✅ ${p.nombre} sincronizado con ID: ${newId}`);
+        console.log(`✅ ${p.name} sincronizado con ID: ${productId}`);
     }
 
-    console.log('\n✨ ¡Proceso completado! La base de datos de Ohio está lista.');
+    console.log('\n✨ ¡Proceso completado! El nuevo esquema está poblado.');
 }
 
 seed();

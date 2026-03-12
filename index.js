@@ -13,30 +13,32 @@ const fs = require('fs');
 // --- Configuración ---
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const sessionManager = require('./sessionManager');
 const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-const userContexts = new Map();
 let botMode = 1; // 0 = Modo Aprendizaje (Silencio + Registro de tus ventas), 1 = Producción (Mia responde)
 // --- Funciones de Base de Datos ---
 async function getCatalogoSupabase() {
     try {
-        // Consultas separadas para evitar errores de relación
-        const { data: productos, error: pError } = await supabase.from('productos').select('*').eq('active', true);
+        const { data: productos, error: pError } = await supabase.from('new_products').select('*').eq('is_active', true);
         if (pError) throw pError;
 
-        const { data: precios, error: prError } = await supabase.from('productos_precios').select('*');
+        const { data: precios, error: prError } = await supabase.from('product_prices').select('*');
         if (prError) console.warn('⚠️ Error al cargar precios:', prError.message);
 
-        const { data: variantes, error: vError } = await supabase.from('productos_variantes').select('*');
+        const { data: variantes, error: vError } = await supabase.from('product_variants').select('*');
         if (vError) console.warn('⚠️ Error al cargar variantes:', vError.message);
 
-        // Unión manual en JS
+        const { data: media, error: mError } = await supabase.from('product_media').select('*');
+        if (mError) console.warn('⚠️ Error al cargar media:', mError.message);
+
         return productos.map(p => ({
             ...p,
-            productos_precios: precios ? precios.filter(pr => pr.producto_id === p.id) : [],
-            productos_variantes: variantes ? variantes.filter(v => v.producto_id === p.id) : []
+            product_prices: precios ? precios.filter(pr => pr.product_id === p.id) : [],
+            product_variants: variantes ? variantes.filter(v => v.product_id === p.id) : [],
+            product_media: media ? media.filter(m => m.product_id === p.id) : []
         }));
     } catch (err) {
         console.error('❌ Error Supabase:', err.message);
@@ -44,33 +46,26 @@ async function getCatalogoSupabase() {
     }
 }
 
-async function guardarLogVenta(cliente_tel, mensaje, respuesta) {
+async function guardarLogVenta(customer_phone, message, response) {
     try {
-        await supabase.from('logs_ventas').insert([{ cliente_tel, mensaje, respuesta }]);
+        await supabase.from('chat_logs').insert([{ customer_phone, message, response }]);
     } catch (err) {
         console.error('❌ Excepción al guardar log:', err.message);
     }
 }
 
-async function getContextoCliente(telefono) {
+async function getContextoCliente(phone) {
     try {
-        await supabase.from('clientes').upsert({ telefono }, { onConflict: 'telefono' });
-        const { data: cliente } = await supabase.from('clientes').select('*').eq('telefono', telefono).single();
-        const { data: memoria } = await supabase.from('memoria_ia').select('*').eq('cliente_tel', telefono).order('timestamp', { ascending: false }).limit(3);
-        const { data: logs } = await supabase.from('logs_ventas').select('mensaje, respuesta').eq('cliente_tel', telefono).order('timestamp', { ascending: false }).limit(3);
+        await supabase.from('customers').upsert({ phone }, { onConflict: 'phone' });
+        const { data: customer } = await supabase.from('customers').select('*').eq('phone', phone).single();
+        const { data: logs } = await supabase.from('chat_logs').select('message, response').eq('customer_phone', phone).order('created_at', { ascending: false }).limit(6);
 
         let contexto = "";
-        if (cliente && cliente.nombre) contexto += `Nombre del cliente: ${cliente.nombre}. `;
-        if (cliente && cliente.compras_previas > 0) contexto += `Ya nos ha comprado ${cliente.compras_previas} veces. `;
-        if (memoria && memoria.length > 0) {
-            contexto += "Lo que sabemos: ";
-            memoria.forEach(m => {
-                if (m.gustos) contexto += `Le gusta: ${m.gustos}. `;
-                if (m.objeciones) contexto += `Objeciones: ${m.objeciones}. `;
-            });
-        }
+        if (customer && customer.full_name) contexto += `Nombre del cliente: ${customer.full_name}. `;
+        if (customer && customer.purchases_count > 0) contexto += `Ya nos ha comprado ${customer.purchases_count} veces. `;
+        
         if (logs && logs.length > 0) {
-            contexto += "Últimas interacciones: " + logs.map(l => `C: ${l.mensaje} | R: ${l.respuesta}`).join(' // ');
+            contexto += "Últimas interacciones: " + logs.map(l => `C: ${l.message} | R: ${l.response}`).join(' // ');
         }
         return contexto || "Es un cliente nuevo.";
     } catch (err) { return "Error al cargar contexto."; }
@@ -81,11 +76,11 @@ async function registrarMemoria(telefono, gustos, objeciones) {
     await supabase.from('memoria_ia').insert([{ cliente_tel: telefono, gustos, objeciones }]);
 }
 
-async function registrarPedido(telefono, envio, productos, total) {
+async function registrarPedido(phone, shipping_details, items_summary, total_amount) {
     try {
-        await supabase.from('clientes').upsert([{ telefono, ultima_consulta: new Date().toISOString() }], { onConflict: 'telefono' });
-        const { error } = await supabase.from('pedidos').insert([{ 
-            cliente_tel: telefono, detalles_envio: envio, productos, total: parseFloat(total) || 0, estado: 'ESPERANDO_PAGO'
+        await supabase.from('customers').upsert([{ phone, last_interaction_at: new Date().toISOString() }], { onConflict: 'phone' });
+        const { error } = await supabase.from('new_orders').insert([{ 
+            customer_phone: phone, shipping_details, items_summary, total_amount: parseFloat(total_amount) || 0, status: 'WAITING_PAYMENT'
         }]);
         if (error) throw error;
         return true;
@@ -94,9 +89,9 @@ async function registrarPedido(telefono, envio, productos, total) {
 
 async function getBotConfig() {
     try {
-        const { data } = await supabase.from('configuracion').select('*');
+        const { data } = await supabase.from('system_settings').select('*');
         const config = {};
-        data?.forEach(item => { config[item.clave] = item.valor; });
+        data?.forEach(item => { config[item.key] = item.value; });
         return config;
     } catch (err) { return {}; }
 }
@@ -105,12 +100,12 @@ async function getBotConfig() {
 app.get('/', (req, res) => res.sendFile(path.resolve(__dirname, 'dashboard.html')));
 app.get('/api/products', async (req, res) => {
     try {
-        const { data: productos } = await supabase.from('productos').select('*').order('id', { ascending: false });
-        const { data: precios } = await supabase.from('productos_precios').select('*');
+        const { data: productos } = await supabase.from('new_products').select('*').order('created_at', { ascending: false });
+        const { data: precios } = await supabase.from('product_prices').select('*');
         
         const merged = (productos || []).map(p => ({
             ...p,
-            productos_precios: (precios || []).filter(pr => pr.producto_id === p.id)
+            product_prices: (precios || []).filter(pr => pr.product_id === p.id)
         }));
         res.json(merged);
     } catch (err) {
@@ -118,7 +113,7 @@ app.get('/api/products', async (req, res) => {
     }
 });
 app.post('/api/products', async (req, res) => {
-    const { data, error } = await supabase.from('productos').insert([req.body]).select();
+    const { data, error } = await supabase.from('new_products').insert([req.body]).select();
     if (error) {
         console.error('❌ Error al crear producto:', error.message);
         return res.status(400).json(error);
@@ -127,7 +122,7 @@ app.post('/api/products', async (req, res) => {
 });
 
 app.put('/api/products/:id', async (req, res) => {
-    const { data, error } = await supabase.from('productos').update(req.body).eq('id', req.params.id).select();
+    const { data, error } = await supabase.from('new_products').update(req.body).eq('id', req.params.id).select();
     if (error) {
         console.error('❌ Error al actualizar producto:', error.message);
         return res.status(400).json(error);
@@ -145,14 +140,14 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 
 // CRM Endpoints
 app.get('/api/pedidos', async (req, res) => {
-    const { data } = await supabase.from('pedidos').select('*').order('timestamp', { ascending: false });
+    const { data } = await supabase.from('new_orders').select('*').order('created_at', { ascending: false });
     res.json(data || []);
 });
 
 app.get('/api/interactions', async (req, res) => {
     const { tel } = req.query;
-    let q = supabase.from('logs_ventas').select('*').order('timestamp', { ascending: false }).limit(50);
-    if (tel) q = q.ilike('cliente_tel', `%${tel}%`);
+    let q = supabase.from('chat_logs').select('*').order('created_at', { ascending: false }).limit(50);
+    if (tel) q = q.ilike('customer_phone', `%${tel}%`);
     const { data } = await q;
     res.json(data || []);
 });
@@ -162,8 +157,8 @@ app.get('/api/bot/config', async (req, res) => res.json(await getBotConfig()));
 app.post('/api/bot/config', async (req, res) => {
     try {
         const body = req.body;
-        const promises = Object.entries(body).map(([clave, valor]) => 
-            supabase.from('configuracion').upsert({ clave, valor: String(valor) }, { onConflict: 'clave' })
+        const promises = Object.entries(body).map(([key, value]) => 
+            supabase.from('system_settings').upsert({ key, value }, { onConflict: 'key' })
         );
         await Promise.all(promises);
         res.json({ success: true });
@@ -171,71 +166,67 @@ app.post('/api/bot/config', async (req, res) => {
 });
 
 app.get('/api/clientes', async (req, res) => {
-    const { data } = await supabase.from('clientes').select('*, memoria_ia(*)').order('ultima_consulta', { ascending: false });
+    const { data } = await supabase.from('customers').select('*').order('last_interaction_at', { ascending: false });
     res.json(data || []);
 });
 
 app.post('/api/products/:id/prices', async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from('productos_precios').insert([{ ...req.body, producto_id: id }]);
+    const { data, error } = await supabase.from('product_prices').insert([{ ...req.body, product_id: id }]);
     if (error) return res.status(400).json(error);
     res.json(data);
 });
 
 app.delete('/api/products/:id/prices', async (req, res) => {
     const { id } = req.params;
-    const { error } = await supabase.from('productos_precios').delete().eq('producto_id', id);
+    const { error } = await supabase.from('product_prices').delete().eq('product_id', id);
     if (error) return res.status(400).json(error);
     res.json({ success: true });
 });
 
 app.post('/api/products/:id/variants', async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from('productos_variantes').insert([{ ...req.body, producto_id: id }]);
+    const { data, error } = await supabase.from('product_variants').insert([{ ...req.body, product_id: id }]);
     if (error) return res.status(400).json(error);
     res.json(data);
 });
 
 app.delete('/api/products/:id/variants', async (req, res) => {
     const { id } = req.params;
-    const { error } = await supabase.from('productos_variantes').delete().eq('producto_id', id);
+    const { error } = await supabase.from('product_variants').delete().eq('product_id', id);
     if (error) return res.status(400).json(error);
     res.json({ success: true });
 });
 
 // --- Core Logic ---
-async function procesarMensaje(mensaje, telefono) {
+async function procesarMensaje(mensaje, phone) {
     try {
-        // Obtenemos el registro para checar si ya pasaron las 12 horas
-        const { data: clienteRecord } = await supabase.from('clientes').select('estado_seguimiento').eq('telefono', telefono).single();
-        const appliesRecovery = clienteRecord && clienteRecord.estado_seguimiento === 'RECUPERACION_ENVIADA';
+        const { data: customerRecord } = await supabase.from('customers').select('tracking_status').eq('phone', phone).single();
+        const appliesRecovery = customerRecord && customerRecord.tracking_status === 'RECUPERACION_ENVIADA';
 
         const catalogo = await getCatalogoSupabase();
-        const contextoCliente = await getContextoCliente(telefono);
+        const contextoCliente = await getContextoCliente(phone);
         const config = await getBotConfig();
         const horaStr = new Date().toLocaleString('en-US', {timeZone: 'America/Mexico_City', hour: 'numeric', hour12: false});
         const ganchoEnvio = parseInt(horaStr) < 16 ? "HOY MISMO" : "MAÑANA";
         
         const listadoProductos = catalogo.map(p => {
-            let preciosFiltrados = p.productos_precios || [];
-            // Ocultamos a Mia los precios Recovery si no se ha enviado el seguimiento de 12 Hrs
+            let preciosFiltrados = p.product_prices || [];
             if (!appliesRecovery) {
-                preciosFiltrados = preciosFiltrados.filter(pr => !pr.etiqueta.toLowerCase().includes('recovery'));
+                preciosFiltrados = preciosFiltrados.filter(pr => !pr.label.toLowerCase().includes('recovery'));
             }
-            const allPrices = preciosFiltrados.map(pr => `${pr.etiqueta}: $${pr.precio} (min ${pr.min_unidades} pzas)`).join(', ');
-            let pInfo = `*${p.nombre}* (${p.categoria || 'aparato'}):\n  - PRECIOS: ${allPrices}`;
+            const allPrices = preciosFiltrados.map(pr => `${pr.label}: $${pr.price} (min ${pr.min_quantity} pzas)`).join(', ');
+            let pInfo = `*${p.name}* (${p.category || 'aparato'}):\n  - PRECIOS: ${allPrices}`;
             
-            if (p.categoria === 'prenda' && p.productos_variantes && p.productos_variantes.length > 0) {
-                const vars = p.productos_variantes.map(v => `${v.nombre} (${v.stock > 0 ? `${v.stock} disponibles` : 'AGOTADO'})`).join(', ');
+            if (p.category === 'prenda' && p.product_variants && p.product_variants.length > 0) {
+                const vars = p.product_variants.map(v => `${v.name} (${v.stock_quantity > 0 ? `${v.stock_quantity} disponibles` : 'AGOTADO'})`).join(', ');
                 pInfo += `\n  - STOCK DETALLADO: ${vars}`;
             }
 
-            if (p.beneficio_principal) pInfo += `\n  - Beneficio: ${p.beneficio_principal}`;
-            if (p.modo_uso) pInfo += `\n  - Uso: ${p.modo_uso}`;
-            if (p.manejo_objeciones) pInfo += `\n  - MANEJO DE OBJECIONES: ${p.manejo_objeciones}`;
-            if (p.hacks_expertos) pInfo += `\n  - HACK DEL EXPERTO: ${p.hacks_expertos}`;
-            if (p.variantes_disponibles) pInfo += `\n  - Guía Variantes: ${p.variantes_disponibles}`;
-            if (p.reglas_especiales) pInfo += `\n  - REGLAS DE VENTA: ${p.reglas_especiales}`;
+            if (p.main_benefit) pInfo += `\n  - Beneficio: ${p.main_benefit}`;
+            if (p.usage_instructions) pInfo += `\n  - Uso: ${p.usage_instructions}`;
+            if (p.objection_handling) pInfo += `\n  - MANEJO DE OBJECIONES: ${p.objection_handling}`;
+            if (p.expert_hacks) pInfo += `\n  - HACK DEL EXPERTO: ${p.expert_hacks}`;
             return pInfo;
         }).join('\n\n');
         
@@ -292,26 +283,8 @@ CONTEXTO DINÁMICO:
 ${contextoCliente}
 ${ganchoEnvio} es la fecha de entrega sugerida.`;
 
-        if (!userContexts.has(telefono)) {
-            const { data: logs } = await supabase.from('logs_ventas')
-                .select('mensaje, respuesta')
-                .eq('cliente_tel', telefono)
-                .order('timestamp', { ascending: false })
-                .limit(5);
-
-            const h = [{ role: 'system', content: sistemaPrompt }];
-            if (logs && logs.length > 0) {
-                logs.reverse().forEach(l => {
-                    h.push({ role: 'user', content: l.mensaje });
-                    h.push({ role: 'assistant', content: l.respuesta });
-                });
-            }
-            userContexts.set(telefono, h);
-        }
-        
-        let history = userContexts.get(telefono);
-        history[0].content = sistemaPrompt;
-        history.push({ role: 'user', content: mensaje });
+        const history = sessionManager.getOrCreateSession(phone, sistemaPrompt);
+        sessionManager.addMessage(phone, 'user', mensaje);
 
         let messagesToSend;
         if (history.length > 20) {
@@ -328,8 +301,7 @@ ${ganchoEnvio} es la fecha de entrega sugerida.`;
         });
         const reply = response.choices[0].message.content;
         
-        history.push({ role: 'assistant', content: reply });
-        if (history.length > 20) history.splice(1, 2);
+        sessionManager.addMessage(phone, 'assistant', reply);
 
         return reply;
     } catch (err) { 
@@ -358,11 +330,10 @@ waClient.on('message', async (msg) => {
     
     // Comando de Reinicio para Pruebas (Oculto)
     if (msg.body.trim().toUpperCase() === 'RESET') {
-        userContexts.delete(msg.from);
-        await supabase.from('clientes').update({ estado_seguimiento: null, ultima_interaccion_tipo: null }).eq('telefono', msg.from);
-        await supabase.from('logs_ventas').delete().eq('cliente_tel', msg.from);
-        await supabase.from('memoria_ia').delete().eq('cliente_tel', msg.from);
-        await supabase.from('pedidos').delete().eq('cliente_tel', msg.from);
+        sessionManager.resetSession(msg.from);
+        await supabase.from('customers').update({ tracking_status: null }).eq('phone', msg.from);
+        await supabase.from('chat_logs').delete().eq('customer_phone', msg.from);
+        await supabase.from('new_orders').delete().eq('customer_phone', msg.from);
         await msg.reply("🔄 *Sistema y Memoria Histórica Reiniciados.*");
         return;
     }
@@ -373,19 +344,19 @@ waClient.on('message', async (msg) => {
         if (partes.length >= 2) {
             const numeroTarget = partes[1].replace(/\D/g, ''); 
             try {
-                const { data: pedido } = await supabase.from('pedidos')
+                const { data: pedido } = await supabase.from('new_orders')
                     .select('*')
-                    .ilike('detalles_envio', `%${numeroTarget}%`)
-                    .match({ estado: 'ESPERANDO_CONFIRMACION' })
-                    .order('timestamp', { ascending: false })
+                    .ilike('shipping_details', `%${numeroTarget}%`)
+                    .match({ status: 'PENDING_CONFIRMATION' })
+                    .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
 
                 if (pedido) {
-                    await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
-                    await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', pedido.cliente_tel);
-                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio.split(' | Pago:')[0]}\n🚚 *Entrega:* ${pedido.detalles_envio.includes('Entrega:') ? pedido.detalles_envio.split('Entrega:')[1].trim() : 'A coordinar'}\n💵 *Monto a pagar:* $${pedido.total}\n💳 *Formas de pago:* Efectivo, Tarjeta en terminal o Transferencia\n\n¡Muchísimas gracias por tu compra!`;
-                    await waClient.sendMessage(pedido.cliente_tel, msjConfirmacion);
+                    await supabase.from('new_orders').update({ status: 'WAITING_PAYMENT' }).eq('id', pedido.id);
+                    await supabase.from('customers').update({ tracking_status: 'CLOSED' }).eq('phone', pedido.customer_phone);
+                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.items_summary}\n📍 *Envío a:* ${pedido.shipping_details.split(' | Pago:')[0]}\n🚚 *Entrega:* ${pedido.shipping_details.includes('Entrega:') ? pedido.shipping_details.split('Entrega:')[1].trim() : 'A coordinar'}\n💵 *Monto a pagar:* $${pedido.total_amount}\n💳 *Formas de pago:* Efectivo, Tarjeta en terminal o Transferencia\n\n¡Muchísimas gracias por tu compra!`;
+                    await waClient.sendMessage(pedido.customer_phone, msjConfirmacion);
                     await msg.reply(`✅ Enterado. Confirmación enviada.`);
                 }
             } catch (err) { console.error("Error en autorización:", err); }
@@ -411,15 +382,18 @@ waClient.on('message', async (msg) => {
     if (botMode === 1) {
         let imageSent = false;
 
-        // 1. Manejo de Media (Imagen de Supabase)
+        // 1. Manejo de Media (Imagen de product_media)
         if (ai.media && ai.media.use_product_image && ai.media.image_path) {
             const catalogo = await getCatalogoSupabase();
-            // Buscamos el producto que coincida con la ruta o el nombre
-            const prod = catalogo.find(p => p.imagen_url && p.imagen_url.includes(ai.media.image_path.split('/').pop()));
+            const prod = catalogo.find(p => p.name.toLowerCase().includes(ai.structured_data.producto.toLowerCase()));
             
-            if (prod && prod.imagen_url) {
+            // Buscamos la imagen en product_media o usamos la principal
+            const mediaItem = prod?.product_media?.find(m => m.image_url.includes(ai.media.image_path.split('/').pop())) 
+                           || prod?.product_media?.find(m => m.is_main);
+            
+            if (mediaItem) {
                 try {
-                    const media = await MessageMedia.fromUrl(prod.imagen_url);
+                    const media = await MessageMedia.fromUrl(mediaItem.image_url);
                     await waClient.sendMessage(msg.from, media, { caption: ai.reply_to_customer });
                     imageSent = true;
                 } catch (e) { console.error("❌ Error mandando foto:", e.message); }
@@ -433,29 +407,37 @@ waClient.on('message', async (msg) => {
         
         // 3. Registro y Actualización de Cliente
         await guardarLogVenta(msg.from, msg.body, ai.reply_to_customer);
-        await supabase.from('clientes').upsert({ telefono: msg.from, ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }, { onConflict: 'telefono' });
+        const customerUpdate = { phone: msg.from, last_interaction_at: new Date().toISOString() };
+        if (ai.intent === 'precio') customerUpdate.tracking_status = 'INTERESTED';
+        await supabase.from('customers').upsert(customerUpdate, { onConflict: 'phone' });
 
         // 4. Manejo de Pedidos Estructurados
         if (ai.intent === 'pedido' && ai.structured_data && ai.structured_data.producto && ai.structured_data.total > 0) {
             const d = ai.structured_data;
             const entrega = new Date().getHours() < 16 ? 'Hoy mismo' : 'Mañana';
-            const envioDetalle = `${d.nombre_cliente || 'Cliente'} | ${msg.from} | ${d.direccion || 'No especificada'} | Pago: Pendiente | Entrega: ${entrega}`;
-            const productoDetalle = `${d.cantidad || 1}x ${d.producto}`;
+            const shipping_details = `${d.nombre_cliente || 'Cliente'} | ${msg.from} | ${d.direccion || 'No especificada'} | Pago: Pendiente | Entrega: ${entrega}`;
+            const items_summary = `${d.cantidad || 1}x ${d.producto}`;
 
-            const { data: newOrder } = await supabase.from('pedidos').insert([{ 
-                cliente_tel: msg.from, detalles_envio: envioDetalle, productos: productoDetalle, total: d.total, estado: 'ESPERANDO_CONFIRMACION'
+            const { data: newOrder } = await supabase.from('new_orders').insert([{ 
+                customer_phone: msg.from, shipping_details, items_summary, total_amount: d.total, status: 'PENDING_CONFIRMATION'
             }]).select().single();
 
             if (newOrder) {
-                await supabase.from('clientes').update({ estado_seguimiento: 'ESPERANDO_CONFIRMACION' }).eq('telefono', msg.from);
+                await supabase.from('customers').update({ tracking_status: 'PENDING_CONFIRMATION' }).eq('phone', msg.from);
                 
+                // Cola para Google Sheets
+                await supabase.from('sheets_sync_queue').insert([{
+                    order_id: newOrder.id,
+                    payload: { ...newOrder, customer_phone: msg.from, timestamp: new Date().toISOString() }
+                }]);
+
                 // Alerta al Grupo Ventas
                 try {
                     const chats = await waClient.getChats();
                     const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
                     if (grupoVentas) {
                         const numLimpio = msg.from.replace(/\D/g, '');
-                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n👤 *Cliente:* ${d.nombre_cliente || 'Desconocido'}\n📱 *Celular:* ${numLimpio}\n📦 *Producto:* ${productoDetalle}\n💰 *Total:* $${d.total}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
+                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n👤 *Cliente:* ${d.nombre_cliente || 'Desconocido'}\n📱 *Celular:* ${numLimpio}\n📦 *Producto:* ${items_summary}\n💰 *Total:* $${d.total}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
                         await grupoVentas.sendMessage(alerta);
                     }
                 } catch(e) { console.error("❌ Error notificar grupo:", e.message); }
@@ -466,8 +448,8 @@ waClient.on('message', async (msg) => {
     // --- MODO APRENDIZAJE: Registrar tus respuestas manuales ---
     if (msg.fromMe && botMode === 0) {
         try {
-            await supabase.from('logs_ventas').insert([{ 
-                cliente_tel: msg.to, mensaje: "[RESPUESTA MANUAL]", respuesta: msg.body 
+            await supabase.from('chat_logs').insert([{ 
+                customer_phone: msg.to.replace(/\D/g, ''), message: "[RESPUESTA MANUAL]", response: msg.body 
             }]);
         } catch (e) { console.error("❌ Error Aprendizaje:", e.message); }
     }
@@ -475,23 +457,48 @@ waClient.on('message', async (msg) => {
 
 // --- Seguimiento Automático ---
 async function ejecutarSeguimiento() {
-    if (botMode === 0) return; // Silencio total en modo aprendizaje
+    if (botMode === 0) return; 
     const config = await getBotConfig();
     if (String(config.bot_seguimiento_activo) !== 'true') return;
     
     const ahora = new Date();
+    
+    // 1. Seguimiento 6h (Interesado -> Recordatorio Enviado)
     const seisH = new Date(ahora - 6 * 60 * 60 * 1000).toISOString();
-    const { data: r6 } = await supabase.from('clientes').select('*').eq('estado_seguimiento', 'INTERESADO').eq('ultima_interaccion_tipo', 'CLIENTE').lt('ultima_consulta', seisH);
+    const { data: r6 } = await supabase.from('customers')
+        .select('*')
+        .eq('tracking_status', 'INTERESTED')
+        .is('last_followup_at', null)
+        .lt('last_interaction_at', seisH);
+
     for (const c of r6 || []) {
-        await waClient.sendMessage(c.telefono, "¡Hola! 🌸 ¿Te quedó alguna duda sobre tu producto? ¡Quedo atenta para agendarte! 😊");
-        await supabase.from('clientes').update({ estado_seguimiento: 'RECORDATORIO_ENVIADO', ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', c.telefono);
+        try {
+            await waClient.sendMessage(c.phone, "¡Hola! 🌸 ¿Te quedó alguna duda sobre tu producto? ¡Quedo atenta para agendarte! 😊");
+            await supabase.from('customers').update({ 
+                tracking_status: 'FOLLOWUP_SENT', 
+                last_followup_at: new Date().toISOString() 
+            }).eq('phone', c.phone);
+            console.log(`✅ Seguimiento 6h enviado a ${c.phone}`);
+        } catch (err) { console.error(`❌ Error seguimiento 6h a ${c.phone}:`, err.message); }
     }
 
+    // 2. Recovery 12h (Recordatorio Enviado -> Recuperación Enviada)
     const doceH = new Date(ahora - 12 * 60 * 60 * 1000).toISOString();
-    const { data: r12 } = await supabase.from('clientes').select('*').eq('estado_seguimiento', 'RECORDATORIO_ENVIADO').eq('ultima_interaccion_tipo', 'BOT').lt('ultima_consulta', doceH);
+    const { data: r12 } = await supabase.from('customers')
+        .select('*')
+        .eq('tracking_status', 'FOLLOWUP_SENT')
+        .is('last_recovery_at', null)
+        .lt('last_followup_at', doceH);
+
     for (const c of r12 || []) {
-        await waClient.sendMessage(c.telefono, "¡Hola de nuevo! ✨ Me autorizaron un **10% de DESCUENTO** si pides ahorita. 💸 ¿Te animas? 🚀");
-        await supabase.from('clientes').update({ estado_seguimiento: 'RECUPERACION_ENVIADA', ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', c.telefono);
+        try {
+            await waClient.sendMessage(c.phone, "¡Hola de nuevo! ✨ Me autorizaron un **10% de DESCUENTO** si pides ahorita. 💸 ¿Te animas? 🚀");
+            await supabase.from('customers').update({ 
+                tracking_status: 'RECOVERY_SENT', 
+                last_recovery_at: new Date().toISOString() 
+            }).eq('phone', c.phone);
+            console.log(`✅ Recovery 12h enviado a ${c.phone}`);
+        } catch (err) { console.error(`❌ Error recovery 12h a ${c.phone}:`, err.message); }
     }
 }
 setInterval(ejecutarSeguimiento, 10 * 60 * 1000);
