@@ -398,7 +398,12 @@ waClient.on('message', async (msg) => {
                                || prod?.product_media?.[0];
                 
                 if (mediaItem) {
-                    const media = await MessageMedia.fromUrl(mediaItem.image_url);
+                    const response = await fetch(mediaItem.image_url);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    const mimetype = response.headers.get('content-type') || 'image/jpeg';
+                    const media = new MessageMedia(mimetype, buffer.toString('base64'), cleanPath);
                     await waClient.sendMessage(msg.from, media, { caption: ai.reply_to_customer });
                     imageSent = true;
                 }
