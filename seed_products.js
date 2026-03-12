@@ -18,7 +18,7 @@ async function seed() {
             manejo_objeciones: 'Si dicen que están caras, recuérdales que es una inversión en su salud y que duran meses. Ofrece el Recovery si es necesario.',
             hacks_expertos: 'Úsalas durante el día para evitar pesadez al final de la jornada. Lavar a mano para conservar la compresión.',
             reglas_especiales: 'Paquetes de 1 y 2 pares. No se vende individual una sola calceta.',
-            imagen_url: 'https://vcywhbzhndjmqbkvtxuy.supabase.co/storage/v1/object/public/productos/neurofeet.png',
+            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/neurofeet.png',
             prices: [
                 { etiqueta: '1 Par', precio: 449, min_unidades: 1 },
                 { etiqueta: 'Promo 2 Pares', precio: 599, min_unidades: 2 },
@@ -35,15 +35,15 @@ async function seed() {
             categoria: 'aparato',
             descripcion: 'Dispositivo con tecnología de Luz UV e Infraroja diseñado para eliminar el hongo en la uña de forma efectiva y segura.',
             stock: 15,
-            beneficio_principal: 'Tratamiento no invasivo, sin químicos y con resultados visibles en pocas semanas.',
+            beneficio_principal: '✨ Elimina hongos desde el día 5\n✅ Sin dolor\n🏆 Resultados garantizados',
             modo_uso: 'Colocar sobre la uña afectada por 7 minutos diarios. El aparato se apaga solo al terminar.',
             manejo_objeciones: 'Es mucho más barato que ir al podólogo varias veces. Funciona en uñas de manos y pies.',
             hacks_expertos: 'Sé constante, los mejores resultados se ven al mes de uso diario.',
             reglas_especiales: 'Garantía de 30 días contra defectos de fábrica.',
-            imagen_url: 'https://vcywhbzhndjmqbkvtxuy.supabase.co/storage/v1/object/public/productos/clean_nails.png',
+            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/clean_nails.png',
             prices: [
-                { etiqueta: '1 Unidad', precio: 449, min_unidades: 1 },
-                { etiqueta: 'Promo 2 Unidades', precio: 799, min_unidades: 2 },
+                { etiqueta: '1 Pieza', precio: 449, min_unidades: 1 },
+                { etiqueta: 'Promo 2 piezas', precio: 599, min_unidades: 2 },
                 { etiqueta: 'Recovery (10% off)', precio: 404, min_unidades: 1 }
             ]
         },
@@ -58,7 +58,7 @@ async function seed() {
             manejo_objeciones: 'No quema a la mascota (el vapor es frío). Facilita mucho la limpieza sin bañar con jabón.',
             hacks_expertos: 'Añade una gota de aceite esencial apto para mascotas en el agua para un aroma increíble.',
             reglas_especiales: 'Carga USB incluida.',
-            imagen_url: 'https://vcywhbzhndjmqbkvtxuy.supabase.co/storage/v1/object/public/productos/cloud_pet.png',
+            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/cloud_pet.png',
             prices: [
                 { etiqueta: '1 Unidad', precio: 399, min_unidades: 1 },
                 { etiqueta: 'Promo 2 Unidades', precio: 699, min_unidades: 2 },

@@ -383,7 +383,48 @@ waClient.on('message', async (msg) => {
     
     // Solo respondemos si el modo producción está activo
     if (botMode === 1) {
-        const safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/gi, '').replace(/\[IMG:[^\]]+\]/gi, '').trim();
+        // 1. Detectar si la IA sugirió una imagen
+        const imgTags = [...reply.matchAll(/\[IMG:\s*([^\]]+?)\s*\]/gi)];
+        let imageSent = false;
+
+        if (imgTags.length === 1) {
+            const catalogo = await getCatalogoSupabase();
+            const requestedProductName = imgTags[0][1].toLowerCase().trim();
+            const prod = catalogo.find(p => p.nombre.toLowerCase() === requestedProductName);
+            
+            if (prod && prod.imagen_url) {
+                try {
+                    const media = await MessageMedia.fromUrl(prod.imagen_url);
+                    
+                    // Formatear el Caption estilo "Screenshot"
+                    let caption = `*${prod.nombre.toUpperCase()} 👣*\n\n`;
+                    caption += `🔥 *PROMOCION* 🔥\n\n`;
+                    
+                    if (prod.productos_precios && prod.productos_precios.length > 0) {
+                        prod.productos_precios.filter(pr => !pr.etiqueta.toLowerCase().includes('recovery')).forEach(pr => {
+                            caption += `*${pr.etiqueta} x $${pr.precio}*\n`;
+                        });
+                        caption += `\n`;
+                    }
+                    
+                    if (prod.beneficio_principal) {
+                        caption += `${prod.beneficio_principal}\n`;
+                    }
+                    
+                    await waClient.sendMessage(msg.from, media, { caption: caption.trim() });
+                    imageSent = true;
+                } catch (e) { console.error("Error mandando foto:", e); }
+            }
+        }
+
+        // 2. Enviar respuesta de texto (con shipping info si se mandó imagen)
+        let safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/gi, '').replace(/\[IMG:[^\]]+\]/gi, '').trim();
+        
+        if (imageSent) {
+            // Si mandamos imagen, forzamos el formato de envío gratis en la segunda burbuja
+            safeReply = `🚚 *Envío GRATIS*\n💸 *Pagas al recibir: efectivo, transferencia o tarjeta en terminal*\n\n✨\n¿Te aparto el tuyo antes de que se agoten? 😻`;
+        }
+
         if (safeReply) await msg.reply(safeReply);
         
         // Manejo de Pedidos
@@ -409,23 +450,8 @@ waClient.on('message', async (msg) => {
                     }
                 } catch(e) { console.error("Error al notificar al grupo:", e); }
             }
-        } else {
+        } else if (!imageSent) {
             await supabase.from('clientes').update({ ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', msg.from);
-        }
-
-        // Enviar imágenes según tags [IMG:...]
-        const imgTags = [...reply.matchAll(/\[IMG:\s*([^\]]+?)\s*\]/gi)];
-        if (imgTags.length === 1) {
-            const catalogo = await getCatalogoSupabase();
-            const requestedProductName = imgTags[0][1].toLowerCase().trim();
-            const prod = catalogo.find(p => p.nombre.toLowerCase() === requestedProductName);
-            if (prod && prod.imagen_url) {
-                try {
-                    const media = await MessageMedia.fromUrl(prod.imagen_url);
-                    const textFoto = `🔥 *${prod.nombre}*\n${prod.beneficio_principal || ''}\n✅ Pago contra entrega.`;
-                    await waClient.sendMessage(msg.from, media, { caption: textFoto });
-                } catch (e) { console.error("Error mandando foto:", e); }
-            }
         }
     }
 
