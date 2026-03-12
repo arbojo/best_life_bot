@@ -18,7 +18,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 const userContexts = new Map();
-let botMode = 0; // 0 = Modo Aprendizaje (Silencio + Registro de tus ventas), 1 = Producción (Mia responde)
+let botMode = 1; // 0 = Modo Aprendizaje (Silencio + Registro de tus ventas), 1 = Producción (Mia responde)
 // --- Funciones de Base de Datos ---
 async function getCatalogoSupabase() {
     try {
@@ -338,24 +338,14 @@ waClient.on('ready', () => console.log('✅ Bot Online'));
 waClient.on('message', async (msg) => {
     if (msg.isStatus) return;
     
-    // Si estamos en modo aprendizaje (0), no respondemos a clientes, pero sí procesamos para aprender
-    // Pero permitimos que el código siga si es un mensaje del usuario (fromMe)
-    
     // Comando de Reinicio para Pruebas (Oculto)
     if (msg.body.trim().toUpperCase() === 'RESET') {
         userContexts.delete(msg.from);
-        
-        await supabase.from('clientes').update({ 
-            estado_seguimiento: null, 
-            ultima_interaccion_tipo: null 
-        }).eq('telefono', msg.from);
-        
-        // Destruimos la memoria a largo plazo para este número
+        await supabase.from('clientes').update({ estado_seguimiento: null, ultima_interaccion_tipo: null }).eq('telefono', msg.from);
         await supabase.from('logs_ventas').delete().eq('cliente_tel', msg.from);
         await supabase.from('memoria_ia').delete().eq('cliente_tel', msg.from);
         await supabase.from('pedidos').delete().eq('cliente_tel', msg.from);
-        
-        await msg.reply("🔄 *Sistema y Memoria Histórica Reiniciados.*\nContexto, registros y pedidos del número han sido borrados de raíz. Ahora eres un desconocido 100%. ¡Di 'Hola' para probar!");
+        await msg.reply("🔄 *Sistema y Memoria Histórica Reiniciados.*");
         return;
     }
 
@@ -364,10 +354,8 @@ waClient.on('message', async (msg) => {
         const partes = msg.body.trim().split(' ');
         if (partes.length >= 2) {
             const numeroTarget = partes[1].replace(/\D/g, ''); 
-            
             try {
-                // Buscamos el pedido filtrando los detalles de envío que contienen el celular
-                const { data: pedido, error: searchError } = await supabase.from('pedidos')
+                const { data: pedido } = await supabase.from('pedidos')
                     .select('*')
                     .ilike('detalles_envio', `%${numeroTarget}%`)
                     .match({ estado: 'ESPERANDO_CONFIRMACION' })
@@ -375,75 +363,49 @@ waClient.on('message', async (msg) => {
                     .limit(1)
                     .maybeSingle();
 
-                if (searchError) {
-                    console.error("Supabase Error en búsqueda:", searchError);
-                }
-
                 if (pedido) {
                     await supabase.from('pedidos').update({ estado: 'ESPERANDO_PAGO' }).eq('id', pedido.id);
                     await supabase.from('clientes').update({ estado_seguimiento: 'CERRADO' }).eq('telefono', pedido.cliente_tel);
-                    
-                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio.split(' | Pago:')[0]}\n🚚 *Entrega:* ${pedido.detalles_envio.includes('Entrega:') ? pedido.detalles_envio.split('Entrega:')[1].trim() : 'A coordinar'}\n💵 *Monto a pagar:* $${pedido.total}\n💳 *Formas de pago:* Efectivo, Tarjeta en terminal o Transferencia\n\n¡Muchísimas gracias por tu compra! Nuestro repartidor te contactará antes de llegar. 📞`;
+                    const msjConfirmacion = `✅ *¡Tu pedido ha sido confirmado!* 🎉\n\n📦 *Producto:* ${pedido.productos}\n📍 *Envío a:* ${pedido.detalles_envio.split(' | Pago:')[0]}\n🚚 *Entrega:* ${pedido.detalles_envio.includes('Entrega:') ? pedido.detalles_envio.split('Entrega:')[1].trim() : 'A coordinar'}\n💵 *Monto a pagar:* $${pedido.total}\n💳 *Formas de pago:* Efectivo, Tarjeta en terminal o Transferencia\n\n¡Muchísimas gracias por tu compra!`;
                     await waClient.sendMessage(pedido.cliente_tel, msjConfirmacion);
-                    await msg.reply(`✅ Enterado. Confirmación enviada exitosamente al cliente.`);
-                } else {
-                    await msg.reply(`❌ No encontré un pedido pendiente (ESPERANDO_CONFIRMACION) para el número ${numeroTarget}.`);
+                    await msg.reply(`✅ Enterado. Confirmación enviada.`);
                 }
-            } catch (err) {
-                console.error("Error en autorización:", err);
-                await msg.reply(`❌ Ocurrió un error al procesar la confirmación.`);
-            }
+            } catch (err) { console.error("Error en autorización:", err); }
         }
         return;
     }
     
-    // Ignoramos todos los demás mensajes que sucedan en grupos para que el bot no esté hablando a lo tonto
+    // Ignoramos todos los demás mensajes que sucedan en grupos
     if (msg.from.includes('@g.us')) return;
 
-    // Si estamos en modo producción, procesamos y respondemos
+    // --- PROCESAMIENTO IA ---
+    const reply = await procesarMensaje(msg.body, msg.from);
+    
+    // Solo respondemos si el modo producción está activo
     if (botMode === 1) {
-        const reply = await procesarMensaje(msg.body, msg.from);
-        
-        // Limpiamos los comandos ocultos [PEDIDO|...] y [IMG:...] para que el cliente no los vea
         const safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/gi, '').replace(/\[IMG:[^\]]+\]/gi, '').trim();
         if (safeReply) await msg.reply(safeReply);
         
-        // Alertas y Pedidos
+        // Manejo de Pedidos
         if (reply.includes('[PEDIDO|')) {
             const pedidoMatch = reply.match(/\[PEDIDO\|(.*?)\]/i);
             if (pedidoMatch) {
                 const parts = pedidoMatch[1].split('|');
-                const nombre = parts[0] || 'Cliente';
-                const celularInfo = parts[1] || 'N/A';
-                const direccion = parts[2] || 'N/A';
-                const producto = parts[3] || 'Producto';
-                const piezas = parts[4] || '1';
-                const pago = parts[5] || 'Acordar';
-                const total = parts[6] || 0;
-                const fechaEntrega = parts[7] || 'A coordinar';
+                const envioDetalle = `${parts[0]} | ${parts[1]} | ${parts[2]} | Pago: ${parts[5]} | Entrega: ${parts[7]}`;
+                const productoDetalle = `${parts[4]}x ${parts[3]}`;
+                const numLimpio = (parts[1] || '').replace(/\D/g, ''); 
 
-                const envioDetalle = `${nombre} | ${celularInfo} | ${direccion} | Pago: ${pago} | Entrega: ${fechaEntrega}`;
-                const productoDetalle = `${piezas}x ${producto}`;
-                
-                // Usaremos exclusivamente el celular corto que dio el cliente como clave operativa para los humanos
-                const numLimpio = celularInfo.replace(/\D/g, ''); 
-
-                // Guardar pedido como ESPERANDO_CONFIRMACION
-                const pResult = await supabase.from('pedidos').insert([{ 
-                    cliente_tel: msg.from, detalles_envio: envioDetalle, productos: productoDetalle, total: parseFloat(total) || 0, estado: 'ESPERANDO_CONFIRMACION'
+                await supabase.from('pedidos').insert([{ 
+                    cliente_tel: msg.from, detalles_envio: envioDetalle, productos: productoDetalle, total: parseFloat(parts[6]) || 0, estado: 'ESPERANDO_CONFIRMACION'
                 }]);
-                
                 await supabase.from('clientes').update({ estado_seguimiento: 'ESPERANDO_CONFIRMACION', ultima_consulta: new Date().toISOString() }).eq('telefono', msg.from);
 
-                // Enviar la notificación al grupo de ventas
                 try {
                     const chats = await waClient.getChats();
                     const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
                     if (grupoVentas) {
-                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n\n👤 *Cliente:* ${nombre}\n📱 *Celular:* ${celularInfo}\n📍 *Dirección:* ${direccion}\n📦 *Producto:* ${productoDetalle}\n💵 *Pago:* ${pago} (Monto: $${total})\n🚚 *Entrega:* ${fechaEntrega}\n\n👉 *Para autorizar y mandar confirmación al cliente, responde aquí:*\nenterado ${numLimpio}`;
+                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n👤 *Cliente:* ${parts[0]}\n📱 *Celular:* ${parts[1]}\n📦 *Producto:* ${productoDetalle}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
                         await grupoVentas.sendMessage(alerta);
-                    } else {
-                        console.log('No se encontró el grupo "ventas" para alertar del pedido.');
                     }
                 } catch(e) { console.error("Error al notificar al grupo:", e); }
             }
@@ -451,49 +413,32 @@ waClient.on('message', async (msg) => {
             await supabase.from('clientes').update({ ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', msg.from);
         }
 
-        // Enviar tarjetas de producto si la IA generó el tag [IMG:NombreProducto]
-        const catalogo = await getCatalogoSupabase();
-        
-        // Extraer todos los tags [IMG:...] de la respuesta original de la IA
+        // Enviar imágenes según tags [IMG:...]
         const imgTags = [...reply.matchAll(/\[IMG:\s*([^\]]+?)\s*\]/gi)];
-        
-        // Solo mandamos foto si la IA generó EXÁCTAMENTE un (1) tag de imagen.
-        // Si generó más de 1, es porque ignoró la regla y listó varios productos. En ese caso NO mandamos nada.
         if (imgTags.length === 1) {
+            const catalogo = await getCatalogoSupabase();
             const requestedProductName = imgTags[0][1].toLowerCase().trim();
-            
-            for (const prod of catalogo) {
-                if (prod.nombre.toLowerCase() === requestedProductName && prod.imagen_url) {
-                    try {
-                        const media = await MessageMedia.fromUrl(prod.imagen_url);
-                        // Armamos un mini resumen
-                        let textFoto = `🔥 *${prod.nombre}*\n`;
-                        if(prod.descripcion) textFoto += `${prod.descripcion}\n\n`;
-                        if(prod.beneficio_principal) textFoto += `✅ ${prod.beneficio_principal}\n\n`;
-                        textFoto += `🚚 ¡Envío sin costo!\n💵 Pago contra entrega (Efectivo, Tarjeta en terminal o Transferencia)`;
-                        await waClient.sendMessage(msg.from, media, { caption: textFoto });
-
-                    } catch (e) { console.error("Error mandando foto:", e); }
-                    break; // Mandamos max 1 foto por mensaje
-                }
+            const prod = catalogo.find(p => p.nombre.toLowerCase() === requestedProductName);
+            if (prod && prod.imagen_url) {
+                try {
+                    const media = await MessageMedia.fromUrl(prod.imagen_url);
+                    const textFoto = `🔥 *${prod.nombre}*\n${prod.beneficio_principal || ''}\n✅ Pago contra entrega.`;
+                    await waClient.sendMessage(msg.from, media, { caption: textFoto });
+                } catch (e) { console.error("Error mandando foto:", e); }
             }
         }
     }
 
     // --- MODO APRENDIZAJE: Capturar tus respuestas manuales ---
     if (msg.fromMe && botMode === 0) {
-        // Si tú respondes manualmente desde el cel, guardamos eso como "Respuesta Maestra"
         console.log(`🧠 [MODO APRENDIZAJE] Registrando tu respuesta manual...`);
         try {
-            // Nota: msg.to es el destinatario (el cliente), msg.body es tu respuesta
             await supabase.from('logs_ventas').insert([{ 
                 cliente_tel: msg.to, 
-                mensaje: "[REPOSTA MANUAL DEL USUARIO]", 
+                mensaje: "[RESPUESTA MANUAL DEL USUARIO]", 
                 respuesta: msg.body 
             }]);
-        } catch (e) {
-            console.error("Error en Modo Aprendizaje:", e.message);
-        }
+        } catch (e) { console.error("Error en Modo Aprendizaje:", e.message); }
     }
 });
 
