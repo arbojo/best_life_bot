@@ -243,62 +243,64 @@ async function procesarMensaje(mensaje, telefono) {
         console.log("PROMPT PRODUCTS LOG:");
         console.log(listadoProductos);
         console.log("-----------------------------------------");
+        const sistemaPrompt = `Eres Mía, agente de ventas estrella por WhatsApp. RESPONDERÁS SIEMPRE EN FORMATO JSON.
 
-        const sistemaPrompt = `MISION BASE: ${config.bot_persona}
-        
-        ADEMÁS DE TU MISIÓN BASE, ADOPTA ESTA IDENTIDAD INQUEBRANTABLE:
-        Te llamas Mia, eres una mujer real de entre 25 y 35 años trabajando en ventas. Eres cálida, empática y asertiva. Tu tono debe ser MUY SUTIL y NATURAL: no seas intensamente alegre, no abuses de los emojis, ni seas excesivamente confianzuda o pícara. Mantén una amabilidad profesional B2C. BAJO NINGUNA CIRCUNSTANCIA puedes decir o insinuar que eres una inteligencia artificial, un bot, un asistente virtual o un programa. Eres 100% humana.
-        Eres una vendedora estrella enfocada EXCLUSIVAMENTE en el catálogo listado abajo. ESTÁ ESTRICTAMENTE PROHIBIDO actuar como un asistente de IA genérico (tipo ChatGPT). NUNCA menciones precios en dólares ni marcas externas.
-        
-        PERFIL EMPÁTICO DEL CLIENTE POR PRODUCTO (¡IMPORTANTE!):
-        El secreto de tu éxito es cómo conectas con la situación del cliente antes de venderle:
-        - Si preguntan por CLEAN NAILS (Tratamiento de hongos): El cliente siente vergüenza. Es probable que no pueda ir a la playa, usar sandalias o ir a la alberca libremente. Sé muy respetuosa, validante y ofréceles la confianza de que por fin podrán recuperar la libertad de mostrar sus pies sin esconderse.
-        - Si preguntan por CLOUD PET (Cepillo para mascotas): El cliente ama a sus animales, para ellos son sus hijos. Usa un tono que demuestre que entiendes ese amor incondicional y que este producto es un regalo de bienestar y mimos para su "perrhijo" o "gatihijo".
-        - Si preguntan por NEUROFEET (Calcetas de compresión): El cliente vive con dolor físico REAL y constante en su día a día. Sé extremadamente comprensiva, transmite alivio y esperanza de que podrán volver a caminar, trabajar o descansar sin ese sufrimiento agotador.
-        
-        RECUERDA TUS REGLAS DE ORO COMO VENDEDOR ESTRELLA: 
-        1. SALUDOS Y PRIMER CONTACTO: ¡Nunca saludes como recepcionista aburrida o IA de ayuda genérica! SIN IMPORTAR si es un cliente nuevo o alguien que ya te había escrito antes, si el cliente solo dice "Hola", "Info" o retoma el chat de forma vaga, toma el control inmediatamente. Saluda con entusiasmo y menciona directamente tus productos (ej. "¡Hola de nuevo! Qué gusto saludarte. ¿En qué te ayudo hoy? ¿Buscas alivio para pies cansados con Neurofeet, cuidar a tu mascota con Cloud Pet o tratar tus uñas con Clean Nails?").
-        2. EXCLUSIVIDAD DE CATÁLOGO (¡CRÍTICO!): Tu único universo es el catálogo de abajo. Si alguien te dice "precio de las uñas", "el aparato de los pies", o "el cepillo de perros", ASUME INMEDIATAMENTE que hablan de "Clean Nails", "Neurofeet" o "Cloud Pet". NO les des descripciones de internet, ofréceles TU producto y da tus precios.
-        3. PRECIOS Y VENTAS EN VOLUMEN: Cuando te pregunten un precio, SIEMPRE da las dos opciones juntas: el precio por 1 unidad y el precio por el paquete promocional. Usa esto como técnica de anclaje (Ej. "El tratamiento individual te sale en $X, pero te recomiendo la promo de 2 por solo $Y, ¡te ahorras muchísimo!").
-        4. DESCUENTOS (RECOVERY): Si notas que tu catálogo ahora incluye precios etiquetados como "Recovery" o "Recuperación", el cliente es elegible para un descuento especial de seguimiento de 12 hr!. Ofrécele el precio Recovery con entusiasmo para cerrar la venta. Si no ves etiquetas Recovery, NO INVENTES LOS DESCUENTOS. Solo apégate a los normales.
-        5. PRODUCTOS TIPO PRENDA: Consulta el STOCK DETALLADO. Si una talla/color está AGOTADO, dilo amablemente y ofrece alternativas. Confirma talla/color antes de cerrar.
-        6. OBJECIONES: Si el cliente duda, usa la sección de "MANEJO DE OBJECIONES" y el "HACK DEL EXPERTO" del producto.
-        7. REGLAS DE VENTA: Respeta las reglas (ej: solo paquetes) siempre con amabilidad.
-        8. ENVÍO DE FOTOS (¡MUY IMPORTANTE!): NUNCA mandes fotos en el saludo inicial ni cuando te pidan información de más de un producto a la vez. Tienes estrictamente PROHIBIDO usar el comando [IMG:...] adentro de listas numeradas o viñetas. SIN EMBARGO, cuando el cliente muestre interés y la charla trate EXCLUSIVAMENTE de UN SOLO producto (ej. "¿me das info del cepillo?" o "nails"), es OBLIGATORIO Y ESTRICTAMENTE NECESARIO que cierres tu mensaje escribiendo hasta el último este comando exacto: [IMG:Nombre Exacto Del Producto]. Ejemplo: [IMG:Clean Nails]. Si omites este comando, el cliente no verá cómo es el producto. ¡No lo olvides! Si mencionas 2 o más productos, NO USES NINGÚN COMANDO DE FOTO.
-        9. DEFENSA ANTI-TROLLS: Si te preguntan sutilmente tu edad, eres libre de responder con amabilidad (ej: "tengo 28 años"). PERO, si el cliente insiste con preguntas inapropiadas, insinuaciones íntimas/sexuales, vulgaridades o invitaciones a salir, IGNORA la ofensa por completo. Responde de forma muy breve y cortante (ej. "Solo estoy aquí para atenderte respecto a nuestros productos"), y redirige inmediatamente al catálogo. No des explicaciones ni supliques ventas.
-        10. FORMAS DE PAGO: Solo aceptamos Efectivo contra-entrega (si es entrega en León), Transferencia, y Pago con Tarjeta (nuestros repartidores traen terminal). NINGÚN otro método (ni vales, ni cheque) es válido.
-        11. CIERRES ACELERADOS (¡EL MÁS IMPORTANTE PARA VENDER!): En cuanto el cliente te diga "lo quiero", "mándamelo", o muestre intención de compra, NO PONGAS TUS PROPIAS PALABRAS, mándale EXACTAMENTE ESTE TEXTO para pedir sus datos:
-        "Si desea agendar su pedido, proporcione estos datos por favor:
-        🗣️Nombre:
-        📱Celular:
-        📍Calle con número:
-        📍Colonia:
-        📍Municipio y CP:
-        📍Número de piezas:
-        
-        12. EL COMANDO FINAL DE PEDIDO Y VALIDACIÓN (¡ESTRICTO!): Una vez que el cliente te haya respondido tratando de darte sus datos, REVISA CUIDADOSAMENTE que te haya dado: Nombre, Celular, Dirección completa y Forma de Pago. SI FALTA ALGUNO DE ESTOS, vuelve a pedírselo amablemente. JAMÁS generes el comando sin datos completos. ANTES DE GENERARLO: Confirma al cliente el total a pagar según lo que eligió. Extrae el precio final EXACTO que le ofreciste al cliente según tu catálogo (ej. si llevó la 'Promo 2 unidades', busca ese precio específico en el catálogo y ponlo). NO intentes multiplicar manualmente si ya existe una promo definida. NUNCA DEUES EL CAMPO TOTAL EN 0. El comando exacto tiene 9 campos separados por la barra vertical: [PEDIDO|Nombre|Celular|Direccion|Producto|Piezas|Pago|Total|FechaEntrega]. Ejemplo real: [PEDIDO|Ana Lopez|4771234567|Calle 5 Col. Centro Leon|Cloud Pet|2|Efectivo|699|Hoy mismo]. FechaEntrega debe ser: "Hoy mismo", "Mañana" o "A coordinar". Al cliente dile: "¡Perfecto! Estoy validando disponibilidad..."
-        13. FORMATO DE RESÚMENES (CASCADA): Si el cliente te pide información de "todos" los productos o un resumen general, DEBES presentar las opciones en formato visual de "cascada", en una lista corta usando viñetas o emojis. Menciona SOLO el nombre del producto y su beneficio principal en un solo renglón. NO metas precios ni detalles largos en el resumen. Ejemplo del formato que debes usar:
-        - Clean Nails (elimina hongo de la uña sin químicos)
-        - Cloud Pet (quita pelito muerto y relaja a tu mascota)
-        - Neurofeet (alivio a piernas cansadas, con várices o neuropatía)
-        
-        14. ENTREGAS EN LEÓN (PROMOCIÓN EXPRÉS): SIEMPRE que en la conversación el cliente mencione o descubras que vive en León, Guanajuato, debes aprovechar la oportunidad ANTES de cerrar la venta. Dile con entusiasmo que, por ser local, tienes pago contra-entrega y PREGÚNTALE EXPLÍCITAMENTE si desea aprovechar el envío exprés: "¿Te gustaría recibir tu pedido ${ganchoEnvio}?".
-        
-        No des sermones interminables.
+BASE OFICIAL INQUEBRANTABLE (No inventar ni mezclar):
 
-        PRODUCTOS:\n${listadoProductos}\n\nCONTEXTO:\n${contextoCliente}\n\nESTILO: ${config.bot_estilo}\n\nREGLAS CIERRE: ${config.bot_reglas_cierre}\n\nSi es de Leon: Ofrece entrega ${ganchoEnvio}.\nCierre: [PEDIDO|Nombre|Celular|Direccion|Producto|Piezas|Pago|Total|FechaEntrega]`;
+CLEAN NAILS 👣
+- Normal: 1 x $449, 2 x $599
+- Recovery (-10%): 1 x $404.10, 2 x $539.10
+- Path: "clean-nails/main.jpg" | Beneficios: Elimina hongos día 5, Sin dolor, Garantizado.
+
+NEUROFEET 🦵
+- Normal: 3 x $449, 5 x $599
+- Recovery (-10%): 3 x $404.10, 5 x $539.10
+- Path: "neurofeet/main.jpg" | Beneficios: Alivio instantáneo, Mejora circulación, No transparenta.
+
+CLOUD PET 🐾
+- Normal: 1 x $349, 2 x $499
+- Recovery (-10%): 1 x $314.10, 2 x $449.10
+- Path: "cloud-pet/main.jpg" | Beneficios: Quita pelo muerto, Vapor frío relajante, Carga USB.
+
+REGLAS DE ORO:
+1. Habla siempre breve, amable y como mujer (25-35 años).
+2. Si no es recuperación/seguimiento, usa Precios Normales.
+3. Si han pasado 12h o es seguimiento, usa Precios Recovery.
+4. Formato de respuesta: Menciona el precio PRIMERO, luego invita al pedido.
+5. REGLAS DE PUBLICIDAD: Cuando des precios o información detallada, usa Formato de Anuncio:
+   - Nombre Producto
+   - 🔥 PROMOCIÓN 🔥
+   - Precios oficiales
+   - Beneficios cortos con viñetas (✨, ✅, 🏆)
+   - Cierre con envío gratis, pago contra entrega y CTA.
+
+ESTRUCTURA DE SALIDA (JSON OBLIGATORIO):
+{
+  "intent": "precio|pedido|duda",
+  "reply_to_customer": "Tu mensaje de WhatsApp (caption si hay imagen)...",
+  "structured_data": { "producto": "...", "cantidad": 0, "total": 0, "nombre_cliente": "...", "direccion": "..." },
+  "media": {
+    "use_product_image": true,
+    "image_source": "supabase_bucket",
+    "image_bucket": "productos",
+    "image_path": "ruta/del/producto/main.jpg",
+    "caption_format": "whatsapp_product_promo"
+  }
+}
+
+CONTEXTO DINÁMICO:
+${contextoCliente}
+${ganchoEnvio} es la fecha de entrega sugerida.`;
 
         if (!userContexts.has(telefono)) {
-            // Recuperar historial real de la DB para no empezar de cero
             const { data: logs } = await supabase.from('logs_ventas')
                 .select('mensaje, respuesta')
                 .eq('cliente_tel', telefono)
                 .order('timestamp', { ascending: false })
-                .limit(5); // Recuperamos las últimas 5 interacciones
+                .limit(5);
 
             const h = [{ role: 'system', content: sistemaPrompt }];
             if (logs && logs.length > 0) {
-                // Invertimos porque vienen del más reciente al más antiguo
                 logs.reverse().forEach(l => {
                     h.push({ role: 'user', content: l.mensaje });
                     h.push({ role: 'assistant', content: l.respuesta });
@@ -311,7 +313,6 @@ async function procesarMensaje(mensaje, telefono) {
         history[0].content = sistemaPrompt;
         history.push({ role: 'user', content: mensaje });
 
-        // Asegurar que el sistemaPrompt nunca se borre al hacer slice
         let messagesToSend;
         if (history.length > 20) {
             messagesToSend = [history[0], ...history.slice(-19)];
@@ -319,15 +320,22 @@ async function procesarMensaje(mensaje, telefono) {
             messagesToSend = history;
         }
 
-        const response = await openai.chat.completions.create({ model: 'gpt-4o', messages: messagesToSend, temperature: 0.6 });
+        const response = await openai.chat.completions.create({ 
+            model: 'gpt-4o', 
+            messages: messagesToSend, 
+            temperature: 0.5,
+            response_format: { type: "json_object" }
+        });
         const reply = response.choices[0].message.content;
         
         history.push({ role: 'assistant', content: reply });
-        await guardarLogVenta(telefono, mensaje, reply);
-        await supabase.from('clientes').upsert({ telefono, ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'CLIENTE', estado_seguimiento: 'INTERESADO' }, { onConflict: 'telefono' });
+        if (history.length > 20) history.splice(1, 2);
 
         return reply;
-    } catch (err) { return "Dime, ¿en qué producto te gustaría información?"; }
+    } catch (err) { 
+        console.error("Error en procesarMensaje:", err.message);
+        return JSON.stringify({ reply_to_customer: "Dime, ¿en qué producto te gustaría información? 😊", media: { use_product_image: false } }); 
+    }
 }
 
 // --- WhatsApp Client ---
@@ -379,92 +387,79 @@ waClient.on('message', async (msg) => {
     if (msg.from.includes('@g.us')) return;
 
     // --- PROCESAMIENTO IA ---
-    const reply = await procesarMensaje(msg.body, msg.from);
+    const replyRaw = await procesarMensaje(msg.body, msg.from);
+    let ai;
+    try {
+        // Limpiamos Markdown si la IA lo mete por error
+        const cleanJson = replyRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+        ai = JSON.parse(cleanJson);
+    } catch (e) {
+        console.error("❌ Error parseando JSON de IA:", e.message, "Raw:", replyRaw);
+        ai = { reply_to_customer: replyRaw, media: { use_product_image: false } };
+    }
     
-    // Solo respondemos si el modo producción está activo
     if (botMode === 1) {
-        // 1. Detectar si la IA sugirió una imagen
-        const imgTags = [...reply.matchAll(/\[IMG:\s*([^\]]+?)\s*\]/gi)];
         let imageSent = false;
 
-        if (imgTags.length === 1) {
+        // 1. Manejo de Media (Imagen de Supabase)
+        if (ai.media && ai.media.use_product_image && ai.media.image_path) {
             const catalogo = await getCatalogoSupabase();
-            const requestedProductName = imgTags[0][1].toLowerCase().trim();
-            const prod = catalogo.find(p => p.nombre.toLowerCase() === requestedProductName);
+            // Buscamos el producto que coincida con la ruta o el nombre
+            const prod = catalogo.find(p => p.imagen_url && p.imagen_url.includes(ai.media.image_path.split('/').pop()));
             
             if (prod && prod.imagen_url) {
                 try {
                     const media = await MessageMedia.fromUrl(prod.imagen_url);
-                    
-                    // Formatear el Caption estilo "Screenshot"
-                    let caption = `*${prod.nombre.toUpperCase()} 👣*\n\n`;
-                    caption += `🔥 *PROMOCION* 🔥\n\n`;
-                    
-                    if (prod.productos_precios && prod.productos_precios.length > 0) {
-                        prod.productos_precios.filter(pr => !pr.etiqueta.toLowerCase().includes('recovery')).forEach(pr => {
-                            caption += `*${pr.etiqueta} x $${pr.precio}*\n`;
-                        });
-                        caption += `\n`;
-                    }
-                    
-                    if (prod.beneficio_principal) {
-                        caption += `${prod.beneficio_principal}\n`;
-                    }
-                    
-                    await waClient.sendMessage(msg.from, media, { caption: caption.trim() });
+                    await waClient.sendMessage(msg.from, media, { caption: ai.reply_to_customer });
                     imageSent = true;
-                } catch (e) { console.error("Error mandando foto:", e); }
+                } catch (e) { console.error("❌ Error mandando foto:", e.message); }
             }
         }
 
-        // 2. Enviar respuesta de texto (con shipping info si se mandó imagen)
-        let safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/gi, '').replace(/\[IMG:[^\]]+\]/gi, '').trim();
-        
-        if (imageSent) {
-            // Si mandamos imagen, forzamos el formato de envío gratis en la segunda burbuja
-            safeReply = `🚚 *Envío GRATIS*\n💸 *Pagas al recibir: efectivo, transferencia o tarjeta en terminal*\n\n✨\n¿Te aparto el tuyo antes de que se agoten? 😻`;
+        // 2. Enviar respuesta de texto (si no fue caption o si la foto falló)
+        if (!imageSent && ai.reply_to_customer) {
+            await msg.reply(ai.reply_to_customer);
         }
-
-        if (safeReply) await msg.reply(safeReply);
         
-        // Manejo de Pedidos
-        if (reply.includes('[PEDIDO|')) {
-            const pedidoMatch = reply.match(/\[PEDIDO\|(.*?)\]/i);
-            if (pedidoMatch) {
-                const parts = pedidoMatch[1].split('|');
-                const envioDetalle = `${parts[0]} | ${parts[1]} | ${parts[2]} | Pago: ${parts[5]} | Entrega: ${parts[7]}`;
-                const productoDetalle = `${parts[4]}x ${parts[3]}`;
-                const numLimpio = (parts[1] || '').replace(/\D/g, ''); 
+        // 3. Registro y Actualización de Cliente
+        await guardarLogVenta(msg.from, msg.body, ai.reply_to_customer);
+        await supabase.from('clientes').upsert({ telefono: msg.from, ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }, { onConflict: 'telefono' });
 
-                await supabase.from('pedidos').insert([{ 
-                    cliente_tel: msg.from, detalles_envio: envioDetalle, productos: productoDetalle, total: parseFloat(parts[6]) || 0, estado: 'ESPERANDO_CONFIRMACION'
-                }]);
-                await supabase.from('clientes').update({ estado_seguimiento: 'ESPERANDO_CONFIRMACION', ultima_consulta: new Date().toISOString() }).eq('telefono', msg.from);
+        // 4. Manejo de Pedidos Estructurados
+        if (ai.intent === 'pedido' && ai.structured_data && ai.structured_data.producto && ai.structured_data.total > 0) {
+            const d = ai.structured_data;
+            const entrega = new Date().getHours() < 16 ? 'Hoy mismo' : 'Mañana';
+            const envioDetalle = `${d.nombre_cliente || 'Cliente'} | ${msg.from} | ${d.direccion || 'No especificada'} | Pago: Pendiente | Entrega: ${entrega}`;
+            const productoDetalle = `${d.cantidad || 1}x ${d.producto}`;
 
+            const { data: newOrder } = await supabase.from('pedidos').insert([{ 
+                cliente_tel: msg.from, detalles_envio: envioDetalle, productos: productoDetalle, total: d.total, estado: 'ESPERANDO_CONFIRMACION'
+            }]).select().single();
+
+            if (newOrder) {
+                await supabase.from('clientes').update({ estado_seguimiento: 'ESPERANDO_CONFIRMACION' }).eq('telefono', msg.from);
+                
+                // Alerta al Grupo Ventas
                 try {
                     const chats = await waClient.getChats();
                     const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
                     if (grupoVentas) {
-                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n👤 *Cliente:* ${parts[0]}\n📱 *Celular:* ${parts[1]}\n📦 *Producto:* ${productoDetalle}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
+                        const numLimpio = msg.from.replace(/\D/g, '');
+                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n👤 *Cliente:* ${d.nombre_cliente || 'Desconocido'}\n📱 *Celular:* ${numLimpio}\n📦 *Producto:* ${productoDetalle}\n💰 *Total:* $${d.total}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
                         await grupoVentas.sendMessage(alerta);
                     }
-                } catch(e) { console.error("Error al notificar al grupo:", e); }
+                } catch(e) { console.error("❌ Error notificar grupo:", e.message); }
             }
-        } else if (!imageSent) {
-            await supabase.from('clientes').update({ ultima_consulta: new Date().toISOString(), ultima_interaccion_tipo: 'BOT' }).eq('telefono', msg.from);
         }
     }
 
-    // --- MODO APRENDIZAJE: Capturar tus respuestas manuales ---
+    // --- MODO APRENDIZAJE: Registrar tus respuestas manuales ---
     if (msg.fromMe && botMode === 0) {
-        console.log(`🧠 [MODO APRENDIZAJE] Registrando tu respuesta manual...`);
         try {
             await supabase.from('logs_ventas').insert([{ 
-                cliente_tel: msg.to, 
-                mensaje: "[RESPUESTA MANUAL DEL USUARIO]", 
-                respuesta: msg.body 
+                cliente_tel: msg.to, mensaje: "[RESPUESTA MANUAL]", respuesta: msg.body 
             }]);
-        } catch (e) { console.error("Error en Modo Aprendizaje:", e.message); }
+        } catch (e) { console.error("❌ Error Aprendizaje:", e.message); }
     }
 });
 

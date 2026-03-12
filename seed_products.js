@@ -18,7 +18,7 @@ async function seed() {
             manejo_objeciones: 'Si dicen que están caras, recuérdales que es una inversión en su salud y que duran meses. Ofrece el Recovery si es necesario.',
             hacks_expertos: 'Úsalas durante el día para evitar pesadez al final de la jornada. Lavar a mano para conservar la compresión.',
             reglas_especiales: 'Paquetes de 3 y 5 pares. No se vende individual una sola calceta.',
-            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/nf.jpeg',
+            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/neurofeet/main.jpg',
             prices: [
                 { etiqueta: '3 Pares', precio: 449, min_unidades: 3 },
                 { etiqueta: '5 Pares', precio: 599, min_unidades: 5 },
@@ -41,7 +41,7 @@ async function seed() {
             manejo_objeciones: 'Es mucho más barato que ir al podólogo varias veces. Funciona en uñas de manos y pies.',
             hacks_expertos: 'Sé constante, los mejores resultados se ven al mes de uso diario.',
             reglas_especiales: 'Garantía de 30 días contra defectos de fábrica.',
-            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/cn.jpeg',
+            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/clean-nails/main.jpg',
             prices: [
                 { etiqueta: '1 Pieza', precio: 449, min_unidades: 1 },
                 { etiqueta: 'Promo 2 piezas', precio: 599, min_unidades: 2 },
@@ -60,7 +60,7 @@ async function seed() {
             manejo_objeciones: 'No quema a la mascota (el vapor es frío). Facilita mucho la limpieza sin bañar con jabón.',
             hacks_expertos: 'Añade una gota de aceite esencial apto para mascotas en el agua para un aroma increíble.',
             reglas_especiales: 'Carga USB incluida.',
-            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/cp.jpeg',
+            imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/cloud-pet/main.jpg',
             prices: [
                 { etiqueta: '1 Unidad', precio: 349, min_unidades: 1 },
                 { etiqueta: 'Promo 2 Unidades', precio: 499, min_unidades: 2 },
