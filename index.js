@@ -250,7 +250,7 @@ BASE OFICIAL INQUEBRANTABLE (No inventar ni mezclar):
 CLEAN NAILS 👣
 - Normal: 1 x $449, 2 x $599
 - Recovery (-10%): 1 x $404.10, 2 x $539.10
-- Path: "clean-nails/main.jpg" | Beneficios: Elimina hongos día 5, Sin dolor, Garantizado.
+- Path: "clean-nails/main.jpg" | Beneficios: Cambio coloración sana día 5 (tratamiento total de meses), Sin dolor, Garantizado.
 
 NEUROFEET 🦵
 - Normal: 3 x $449, 5 x $599

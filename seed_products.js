@@ -36,10 +36,10 @@ async function seed() {
             categoria: 'aparato',
             descripcion: 'Dispositivo con tecnología de Luz UV e Infraroja diseñado para eliminar el hongo en la uña de forma efectiva y segura.',
             stock: 15,
-            beneficio_principal: '✨ Elimina hongos desde el día 5\n✅ Sin dolor\n🏆 Resultados garantizados',
+            beneficio_principal: '✨ Cambio de coloración desde el día 5\n✅ Sin dolor\n🏆 Resultados garantizados',
             modo_uso: 'Colocar sobre la uña afectada por 7 minutos diarios. El aparato se apaga solo al terminar.',
             manejo_objeciones: 'Es mucho más barato que ir al podólogo varias veces. Funciona en uñas de manos y pies.',
-            hacks_expertos: 'Sé constante, los mejores resultados se ven al mes de uso diario.',
+            hacks_expertos: 'El tratamiento completo requiere un ciclo de crecimiento de la uña (meses) para que crezca sana. ¡No lo suspendas al ver el primer cambio!',
             reglas_especiales: 'Garantía de 30 días contra defectos de fábrica.',
             imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/clean-nails/main.jpg',
             prices: [
