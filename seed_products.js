@@ -70,24 +70,45 @@ async function seed() {
     for (const p of products) {
         console.log(`\n📦 Procesando: ${p.nombre}...`);
         
-        // 1. Quitar ID fijo para dejar que Supabase asigne UUID o usar el existente
         const { id: oldId, prices, variants, ...prodData } = p;
 
-        // 2. Upsert por NOMBRE para obtener el registro (y su UUID)
-        const { data: upsertedProduct, error: upsertError } = await supabase
+        // 1. Buscar si ya existe por nombre
+        let { data: existing, error: fetchError } = await supabase
             .from('productos')
-            .upsert({ nombre: p.nombre, ...prodData }, { onConflict: 'nombre' })
-            .select()
-            .single();
+            .select('id')
+            .eq('nombre', p.nombre)
+            .maybeSingle();
 
-        if (upsertError) {
-            console.error(`❌ Error en upsert de ${p.nombre}:`, upsertError.message);
-            continue;
+        let newId;
+
+        if (existing) {
+            // 2a. Actualizar existente
+            const { data: updated, error: updateError } = await supabase
+                .from('productos')
+                .update(prodData)
+                .eq('id', existing.id)
+                .select()
+                .single();
+            if (updateError) {
+                console.error(`❌ Error actualizando ${p.nombre}:`, updateError.message);
+                continue;
+            }
+            newId = updated.id;
+        } else {
+            // 2b. Insertar nuevo
+            const { data: inserted, error: insertError } = await supabase
+                .from('productos')
+                .insert({ nombre: p.nombre, ...prodData })
+                .select()
+                .single();
+            if (insertError) {
+                console.error(`❌ Error insertando ${p.nombre}:`, insertError.message);
+                continue;
+            }
+            newId = inserted.id;
         }
 
-        const newId = upsertedProduct.id;
-
-        // 3. Limpiar y Re-insertar precios usando el nuevo ID (UUID)
+        // 3. Limpiar y Re-insertar precios usando el ID real
         await supabase.from('productos_precios').delete().eq('producto_id', newId);
         if (prices) {
             const { error: prError } = await supabase.from('productos_precios').insert(
