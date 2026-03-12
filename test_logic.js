@@ -1,5 +1,43 @@
-const { procesarMensaje } = require('./index.js');
+// Para no iniciar el servidor al probar, simulamos las funciones necesarias
 require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
+const OpenAI = require('openai');
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const userContexts = new Map();
+
+// Traemos la función de lógica directamente (copiada de index.js para la prueba aislada)
+async function getCatalogoSupabase() {
+    const { data: productos } = await supabase.from('productos').select('*').eq('active', true);
+    const { data: precios } = await supabase.from('productos_precios').select('*');
+    return productos.map(p => ({
+        ...p,
+        productos_precios: precios ? precios.filter(pr => pr.producto_id === p.id) : []
+    }));
+}
+
+async function procesarMensaje(mensaje, telefono) {
+    const catalogo = await getCatalogoSupabase();
+    const listadoProductos = catalogo.map(p => {
+        const allPrices = p.productos_precios.map(pr => `${pr.etiqueta}: $${pr.precio}`).join(', ');
+        return `*${p.nombre}*:\n  - PRECIOS: ${allPrices}\n  - Beneficios: ${p.beneficio_principal}`;
+    }).join('\n\n');
+
+    const sistemaPrompt = `Eres Mía, agente de ventas por WhatsApp. RESPONDERÁS SIEMPRE EN JSON.
+BASE OFICIAL:
+${listadoProductos}
+
+ESTRUCTURA:
+{ "intent": "...", "reply_to_customer": "...", "media": { "use_product_image": true, "image_path": "..." } }`;
+
+    const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: sistemaPrompt }, { role: "user", content: mensaje }],
+        response_format: { type: "json_object" }
+    });
+    return response.choices[0].message.content;
+}
 
 async function runTests() {
     console.log('🧪 Iniciando Pruebas de Lógica Interna para Mía...\n');
