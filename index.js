@@ -400,8 +400,10 @@ waClient.on('message', async (msg) => {
     // Ignoramos todos los demás mensajes que sucedan en grupos para que el bot no esté hablando a lo tonto
     if (msg.from.includes('@g.us')) return;
 
-    const reply = await procesarMensaje(msg.body, msg.from);
+    // Si estamos en modo producción, procesamos y respondemos
     if (botMode === 1) {
+        const reply = await procesarMensaje(msg.body, msg.from);
+        
         // Limpiamos los comandos ocultos [PEDIDO|...] y [IMG:...] para que el cliente no los vea
         const safeReply = reply.replace(/\[PEDIDO\|[^\]]+\]/gi, '').replace(/\[IMG:[^\]]+\]/gi, '').trim();
         if (safeReply) await msg.reply(safeReply);
@@ -497,6 +499,7 @@ waClient.on('message', async (msg) => {
 
 // --- Seguimiento Automático ---
 async function ejecutarSeguimiento() {
+    if (botMode === 0) return; // Silencio total en modo aprendizaje
     const config = await getBotConfig();
     if (String(config.bot_seguimiento_activo) !== 'true') return;
     

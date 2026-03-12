@@ -21,8 +21,8 @@ async function checkLearning() {
     // 2. Últimas lecciones
     const { data: logs, error: lError } = await supabase
         .from('logs_ventas')
-        .select('cliente_tel, respuesta, created_at')
-        .order('created_at', { ascending: false })
+        .select('cliente_tel, respuesta, timestamp')
+        .order('timestamp', { ascending: false })
         .limit(5);
 
     if (logs && logs.length > 0) {
@@ -31,7 +31,7 @@ async function checkLearning() {
             console.log(`\n--- Lección #${logs.length - i} ---`);
             console.log(`📱 Cliente: ${l.cliente_tel}`);
             console.log(`✍️ Tu respuesta: "${l.respuesta.substring(0, 100)}${l.respuesta.length > 100 ? '...' : ''}"`);
-            console.log(`⏰ Hora: ${new Date(l.created_at).toLocaleTimeString()}`);
+            console.log(`⏰ Hora: ${new Date(l.timestamp).toLocaleTimeString()}`);
         });
     } else {
         console.log('\n😴 Aún no he capturado nada. ¡En cuanto respondas un chat, aparecerá aquí!');
