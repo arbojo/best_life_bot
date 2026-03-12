@@ -17,12 +17,13 @@ async function seed() {
             modo_uso: 'Colocar como calcetín común, asegurando que la compresión llegue desde el tobillo hasta la pantorrilla.',
             manejo_objeciones: 'Si dicen que están caras, recuérdales que es una inversión en su salud y que duran meses. Ofrece el Recovery si es necesario.',
             hacks_expertos: 'Úsalas durante el día para evitar pesadez al final de la jornada. Lavar a mano para conservar la compresión.',
-            reglas_especiales: 'Paquetes de 1 y 2 pares. No se vende individual una sola calceta.',
+            reglas_especiales: 'Paquetes de 3 y 5 pares. No se vende individual una sola calceta.',
             imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/nf.jpeg',
             prices: [
-                { etiqueta: '1 Par', precio: 449, min_unidades: 1 },
-                { etiqueta: 'Promo 2 Pares', precio: 599, min_unidades: 2 },
-                { etiqueta: 'Recovery (10% off)', precio: 404, min_unidades: 1 }
+                { etiqueta: '3 Pares', precio: 449, min_unidades: 3 },
+                { etiqueta: '5 Pares', precio: 599, min_unidades: 5 },
+                { etiqueta: 'Recovery (3 pares)', precio: 404.10, min_unidades: 3 },
+                { etiqueta: 'Recovery (5 pares)', precio: 539.10, min_unidades: 5 }
             ],
             variants: [
                 { nombre: 'S/M', stock: 12 },
@@ -44,7 +45,8 @@ async function seed() {
             prices: [
                 { etiqueta: '1 Pieza', precio: 449, min_unidades: 1 },
                 { etiqueta: 'Promo 2 piezas', precio: 599, min_unidades: 2 },
-                { etiqueta: 'Recovery (10% off)', precio: 404, min_unidades: 1 }
+                { etiqueta: 'Recovery (1 pieza)', precio: 404.10, min_unidades: 1 },
+                { etiqueta: 'Recovery (2 piezas)', precio: 539.10, min_unidades: 2 }
             ]
         },
         {
@@ -60,9 +62,10 @@ async function seed() {
             reglas_especiales: 'Carga USB incluida.',
             imagen_url: 'https://aveusacpaexwrfoyinas.supabase.co/storage/v1/object/public/productos/cp.jpeg',
             prices: [
-                { etiqueta: '1 Unidad', precio: 399, min_unidades: 1 },
-                { etiqueta: 'Promo 2 Unidades', precio: 699, min_unidades: 2 },
-                { etiqueta: 'Recovery (10% off)', precio: 359, min_unidades: 1 }
+                { etiqueta: '1 Unidad', precio: 349, min_unidades: 1 },
+                { etiqueta: 'Promo 2 Unidades', precio: 499, min_unidades: 2 },
+                { etiqueta: 'Recovery (1 unidad)', precio: 314.10, min_unidades: 1 },
+                { etiqueta: 'Recovery (2 unidades)', precio: 449.10, min_unidades: 2 }
             ]
         }
     ];
