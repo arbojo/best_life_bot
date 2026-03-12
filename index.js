@@ -209,14 +209,18 @@ async function procesarMensaje(mensaje, phone) {
         const config = await getBotConfig();
         const horaStr = new Date().toLocaleString('en-US', {timeZone: 'America/Mexico_City', hour: 'numeric', hour12: false});
         const ganchoEnvio = parseInt(horaStr) < 16 ? "HOY MISMO" : "MAÑANA";
-        
         const listadoProductos = catalogo.map(p => {
             let preciosFiltrados = p.product_prices || [];
             if (!appliesRecovery) {
                 preciosFiltrados = preciosFiltrados.filter(pr => !pr.label.toLowerCase().includes('recovery'));
             }
             const allPrices = preciosFiltrados.map(pr => `${pr.label}: $${pr.price} (min ${pr.min_quantity} pzas)`).join(', ');
-            let pInfo = `*${p.name}* (${p.category || 'aparato'}):\n  - PRECIOS: ${allPrices}`;
+            
+            // Buscar imagen principal para darle la ruta exacta a la IA
+            const mainImg = p.product_media?.find(m => m.is_main) || p.product_media?.[0];
+            const imgPath = mainImg ? mainImg.image_url.split('/').pop() : "main.jpg";
+
+            let pInfo = `*${p.name}* (${p.category || 'aparato'}):\n  - PRECIOS: ${allPrices}\n  - PATH_IMG: "${imgPath}"`;
             
             if (p.category === 'prenda' && p.product_variants && p.product_variants.length > 0) {
                 const vars = p.product_variants.map(v => `${v.name} (${v.stock_quantity > 0 ? `${v.stock_quantity} disponibles` : 'AGOTADO'})`).join(', ');
@@ -236,22 +240,8 @@ async function procesarMensaje(mensaje, phone) {
         console.log("-----------------------------------------");
         const sistemaPrompt = `Eres Mía, agente de ventas estrella por WhatsApp. RESPONDERÁS SIEMPRE EN FORMATO JSON.
 
-BASE OFICIAL INQUEBRANTABLE (No inventar ni mezclar):
-
-CLEAN NAILS 👣
-- Normal: 1 x $449, 2 x $599
-- Recovery (-10%): 1 x $404.10, 2 x $539.10
-- Path: "clean-nails/main.jpg" | Beneficios: Cambio coloración sana día 5 (tratamiento total de meses), Sin dolor, Garantizado.
-
-NEUROFEET 🦵
-- Normal: 3 x $449, 5 x $599
-- Recovery (-10%): 3 x $404.10, 5 x $539.10
-- Path: "neurofeet/main.jpg" | Beneficios: Alivio instantáneo, Mejora circulación, No transparenta.
-
-CLOUD PET 🐾
-- Normal: 1 x $349, 2 x $499
-- Recovery (-10%): 1 x $314.10, 2 x $449.10
-- Path: "cloud-pet/main.jpg" | Beneficios: Quita pelo muerto, Vapor frío relajante, Carga USB.
+BASE OFICIAL DINÁMICA (Solo usa esta información):
+${listadoProductos}
 
 REGLAS DE ORO:
 1. Habla siempre breve, amable y como mujer (25-35 años).
@@ -269,13 +259,22 @@ ESTRUCTURA DE SALIDA (JSON OBLIGATORIO):
 {
   "intent": "precio|pedido|duda",
   "reply_to_customer": "Tu mensaje de WhatsApp (caption si hay imagen)...",
-  "structured_data": { "producto": "...", "cantidad": 0, "total": 0, "nombre_cliente": "...", "direccion": "..." },
+  "structured_data": { 
+    "producto": "Nombre exacto", 
+    "cantidad": 0, 
+    "total": 0, 
+    "nombre_cliente": "...", 
+    "calle_numero": "...",
+    "colonia": "...",
+    "ciudad": "...",
+    "estado": "...",
+    "codigo_postal": "...",
+    "referencias": "...",
+    "metodo_pago": "..."
+  },
   "media": {
     "use_product_image": true,
-    "image_source": "supabase_bucket",
-    "image_bucket": "productos",
-    "image_path": "ruta/del/producto/main.jpg",
-    "caption_format": "whatsapp_product_promo"
+    "image_path": "Usa exactamente el PATH_IMG del producto de la lista"
   }
 }
 
@@ -384,20 +383,25 @@ waClient.on('message', async (msg) => {
 
         // 1. Manejo de Media (Imagen de product_media)
         if (ai.media && ai.media.use_product_image && ai.media.image_path) {
-            const catalogo = await getCatalogoSupabase();
-            const prod = catalogo.find(p => p.name.toLowerCase().includes(ai.structured_data.producto.toLowerCase()));
-            
-            // Buscamos la imagen en product_media o usamos la principal
-            const mediaItem = prod?.product_media?.find(m => m.image_url.includes(ai.media.image_path.split('/').pop())) 
-                           || prod?.product_media?.find(m => m.is_main);
-            
-            if (mediaItem) {
-                try {
+            try {
+                const catalogo = await getCatalogoSupabase();
+                const cleanPath = ai.media.image_path.replace(/['"]+/g, '').trim();
+                
+                // Buscar producto por nombre (preferido) o por coincidencia en el path
+                const prod = catalogo.find(p => ai.structured_data?.producto && p.name.toLowerCase().includes(ai.structured_data.producto.toLowerCase()))
+                           || catalogo.find(p => p.product_media?.some(m => m.image_url.includes(cleanPath)));
+                
+                // Obtener el item de media exacto
+                const mediaItem = prod?.product_media?.find(m => m.image_url.includes(cleanPath)) 
+                               || prod?.product_media?.find(m => m.is_main)
+                               || prod?.product_media?.[0];
+                
+                if (mediaItem) {
                     const media = await MessageMedia.fromUrl(mediaItem.image_url);
                     await waClient.sendMessage(msg.from, media, { caption: ai.reply_to_customer });
                     imageSent = true;
-                } catch (e) { console.error("❌ Error mandando foto:", e.message); }
-            }
+                }
+            } catch (e) { console.error("❌ Error resolviendo/enviando foto:", e.message); }
         }
 
         // 2. Enviar respuesta de texto (si no fue caption o si la foto falló)
@@ -411,11 +415,16 @@ waClient.on('message', async (msg) => {
         if (ai.intent === 'precio') customerUpdate.tracking_status = 'INTERESTED';
         await supabase.from('customers').upsert(customerUpdate, { onConflict: 'phone' });
 
-        // 4. Manejo de Pedidos Estructurados
+        // 4. Manejo de Pedidos Estructurados (Validación Estricta de 12 campos)
         if (ai.intent === 'pedido' && ai.structured_data && ai.structured_data.producto && ai.structured_data.total > 0) {
             const d = ai.structured_data;
+            
+            // Campos Requeridos para Escalamiento (Regla QA)
+            const requiredFields = ['nombre_cliente', 'producto', 'cantidad', 'total', 'calle_numero', 'colonia', 'ciudad', 'estado', 'codigo_postal', 'referencias', 'metodo_pago'];
+            const missingFields = requiredFields.filter(f => !d[f] || String(d[f]).length < 2);
+            
             const entrega = new Date().getHours() < 16 ? 'Hoy mismo' : 'Mañana';
-            const shipping_details = `${d.nombre_cliente || 'Cliente'} | ${msg.from} | ${d.direccion || 'No especificada'} | Pago: Pendiente | Entrega: ${entrega}`;
+            const shipping_details = `${d.nombre_cliente || 'Cliente'} | ${msg.from} | ${d.calle_numero || ''}, ${d.colonia || ''}, ${d.ciudad || ''}, ${d.estado || ''}, CP ${d.codigo_postal || ''} | Pago: ${d.metodo_pago || 'Pendiente'} | Entrega: ${entrega} | Ref: ${d.referencias || 'N/A'}`;
             const items_summary = `${d.cantidad || 1}x ${d.producto}`;
 
             const { data: newOrder } = await supabase.from('new_orders').insert([{ 
@@ -431,16 +440,20 @@ waClient.on('message', async (msg) => {
                     payload: { ...newOrder, customer_phone: msg.from, timestamp: new Date().toISOString() }
                 }]);
 
-                // Alerta al Grupo Ventas
-                try {
-                    const chats = await waClient.getChats();
-                    const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
-                    if (grupoVentas) {
-                        const numLimpio = msg.from.replace(/\D/g, '');
-                        const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n👤 *Cliente:* ${d.nombre_cliente || 'Desconocido'}\n📱 *Celular:* ${numLimpio}\n📦 *Producto:* ${items_summary}\n💰 *Total:* $${d.total}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
-                        await grupoVentas.sendMessage(alerta);
-                    }
-                } catch(e) { console.error("❌ Error notificar grupo:", e.message); }
+                // Alerta al Grupo Ventas SOLO si el pedido está realmente LISTO (QA Rule)
+                if (missingFields.length === 0) {
+                    try {
+                        const chats = await waClient.getChats();
+                        const grupoVentas = chats.find(c => c.isGroup && c.name.toLowerCase() === 'ventas');
+                        if (grupoVentas) {
+                            const numLimpio = msg.from.replace(/\D/g, '');
+                            const alerta = `🚨 *NUEVO PEDIDO PENDIENTE* 🚨\n🆔 *ID:* ${newOrder.id}\n👤 *Cliente:* ${d.nombre_cliente}\n📱 *Celular:* ${numLimpio}\n📦 *Producto:* ${items_summary}\n💰 *Total:* $${d.total}\n📍 *Ubicación:* ${d.ciudad}, ${d.estado}\n👉 *Autorizar:* responder 'enterado ${numLimpio}'`;
+                            await grupoVentas.sendMessage(alerta);
+                        }
+                    } catch(e) { console.error("❌ Error notificar grupo:", e.message); }
+                } else {
+                    console.log(`⏳ Pedido registrado pero incompleto. Faltan: ${missingFields.join(', ')}`);
+                }
             }
         }
     }
