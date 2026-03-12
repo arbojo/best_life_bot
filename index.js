@@ -252,7 +252,7 @@ REGLAS DE ORO:
 6. REGLAS DE PUBLICIDAD: Cuando des precios o información detallada, usa Formato de Anuncio:
    - Nombre Producto
    - 🔥 PROMOCIÓN 🔥
-   - Precios oficiales
+   - LISTA DE PRECIOS: (Debes detallar TODOS los precios y promociones del producto encontrados en la BASE OFICIAL)
    - Beneficios cortos con viñetas (✨, ✅, 🏆)
    - Cierre con envío gratis, pago contra entrega y CTA.
 
@@ -398,14 +398,19 @@ waClient.on('message', async (msg) => {
                                || prod?.product_media?.[0];
                 
                 if (mediaItem) {
+                    console.log(`📸 Intentando enviar foto de: ${prod.name} | URL: ${mediaItem.image_url}`);
                     const response = await fetch(mediaItem.image_url);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) {
+                        const errTxt = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errTxt}`);
+                    }
                     const arrayBuffer = await response.arrayBuffer();
                     const buffer = Buffer.from(arrayBuffer);
                     const mimetype = response.headers.get('content-type') || 'image/jpeg';
                     const media = new MessageMedia(mimetype, buffer.toString('base64'), cleanPath);
                     await waClient.sendMessage(msg.from, media, { caption: ai.reply_to_customer });
                     imageSent = true;
+                    console.log(`✅ Foto enviada: ${cleanPath}`);
                 }
             } catch (e) { console.error("❌ Error resolviendo/enviando foto:", e.message); }
         }
