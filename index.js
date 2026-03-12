@@ -214,52 +214,53 @@ async function procesarMensaje(mensaje, phone) {
             if (!appliesRecovery) {
                 preciosFiltrados = preciosFiltrados.filter(pr => !pr.label.toLowerCase().includes('recovery'));
             }
-            const allPrices = preciosFiltrados.map(pr => `${pr.label}: $${pr.price} (min ${pr.min_quantity} pzas)`).join(', ');
+            const allPrices = preciosFiltrados.map(pr => `${pr.label}: $${pr.price} (mínimo ${pr.min_quantity} unidades)`).join('\n    - ');
             
-            // Buscar imagen principal para darle la ruta exacta a la IA
             const mainImg = p.product_media?.find(m => m.is_main) || p.product_media?.[0];
             const imgPath = mainImg ? mainImg.image_url.split('/').pop() : "main.jpg";
 
-            let pInfo = `*${p.name}* (${p.category || 'aparato'}):\n  - PRECIOS: ${allPrices}\n  - PATH_IMG: "${imgPath}"`;
+            let pInfo = `[PRODUCTO: ${p.name.toUpperCase()}]
+  - CATEGORÍA: ${p.category || 'aparato'}
+  - PRECIOS DISPONIBLES:
+    - ${allPrices}
+  - PATH_FOTO: "${imgPath}"
+  - BENEFICIO: ${p.main_benefit || ''}
+  - USO: ${p.usage_instructions || ''}`;
             
             if (p.category === 'prenda' && p.product_variants && p.product_variants.length > 0) {
-                const vars = p.product_variants.map(v => `${v.name} (${v.stock_quantity > 0 ? `${v.stock_quantity} disponibles` : 'AGOTADO'})`).join(', ');
-                pInfo += `\n  - STOCK DETALLADO: ${vars}`;
+                const vars = p.product_variants.map(v => `${v.name} (${v.stock_quantity > 0 ? `${v.stock_quantity} en stock` : 'AGOTADO'})`).join(', ');
+                pInfo += `\n  - VARIANTES: ${vars}`;
             }
 
-            if (p.main_benefit) pInfo += `\n  - Beneficio: ${p.main_benefit}`;
-            if (p.usage_instructions) pInfo += `\n  - Uso: ${p.usage_instructions}`;
-            if (p.objection_handling) pInfo += `\n  - MANEJO DE OBJECIONES: ${p.objection_handling}`;
-            if (p.expert_hacks) pInfo += `\n  - HACK DEL EXPERTO: ${p.expert_hacks}`;
+            pInfo += `\n  - MANEJO DE OBJECIONES: ${p.objection_handling || ''}`;
             return pInfo;
         }).join('\n\n');
         
-        console.log("-----------------------------------------");
-        console.log("PROMPT PRODUCTS LOG:");
+        console.log("--- DEBUG: CATALOGO PARA IA ---");
         console.log(listadoProductos);
-        console.log("-----------------------------------------");
+        console.log("--------------------------------");
+
         const sistemaPrompt = `Eres Mía, agente de ventas estrella por WhatsApp. RESPONDERÁS SIEMPRE EN FORMATO JSON.
 
-BASE OFICIAL DINÁMICA (Solo usa esta información):
+ESTA ES TU ÚNICA BASE DE DATOS OFICIAL (Usa estos PRECIOS y estos PATH_FOTO):
 ${listadoProductos}
 
 REGLAS DE ORO:
-1. Habla siempre breve, amable y como mujer (25-35 años). Usa emojis para cercanía.
-2. SALUDO PROACTIVO: Si el cliente solo saluda (ej. "hola"), saludalo cálidamente por su nombre (si lo sabes) y SUGIERE inmediatamente los productos estrella (Clean Nails, Neurofeet, Cloud Pet) con sus beneficios principales. NO preguntes "en qué puedo ayudarte", muestra opciones directo.
+1. Habla siempre breve, amable y como mujer (25-35 años). Usa emojis.
+2. Si el cliente solo saluda, sugiere los productos y diles que hoy el envío es ${ganchoEnvio.toLowerCase()}.
 3. Si no es recuperación/seguimiento, usa Precios Normales.
 4. Si han pasado 12h o es seguimiento, usa Precios Recovery.
-5. Formato de respuesta: Menciona el precio PRIMERO, luego invita al pedido.
-6. REGLAS DE PUBLICIDAD: Cuando des precios o información detallada, usa Formato de Anuncio:
+5. REGLAS DE PUBLICIDAD (Formato de Anuncio):
    - Nombre Producto
    - 🔥 PROMOCIÓN 🔥
-   - LISTA DE PRECIOS: (Debes detallar TODOS los precios y promociones del producto encontrados en la BASE OFICIAL)
+   - LISTA DE PRECIOS: (Debes escribir aquí los precios exactos que aparecen arriba)
    - Beneficios cortos con viñetas (✨, ✅, 🏆)
-   - Cierre con envío gratis, pago contra entrega y CTA.
+   - Cierre con envío gratis y pago contra entrega.
 
 ESTRUCTURA DE SALIDA (JSON OBLIGATORIO):
 {
   "intent": "precio|pedido|duda",
-  "reply_to_customer": "Tu mensaje de WhatsApp (caption si hay imagen)...",
+  "reply_to_customer": "Texto para WhatsApp...",
   "structured_data": { 
     "producto": "Nombre exacto", 
     "cantidad": 0, 
@@ -275,13 +276,17 @@ ESTRUCTURA DE SALIDA (JSON OBLIGATORIO):
   },
   "media": {
     "use_product_image": true,
-    "image_path": "Usa exactamente el PATH_IMG del producto de la lista"
+    "image_path": "Usa exactamente el PATH_FOTO del producto"
   }
 }
 
-CONTEXTO DINÁMICO:
+CONTEXTO CLIENTE:
 ${contextoCliente}
-${ganchoEnvio} es la fecha de entrega sugerida.`;
+Entrega sugerida: ${ganchoEnvio}`;
+
+        console.log("--- DEBUG: PROMPT FINAL PARA IA ---");
+        console.log(sistemaPrompt);
+        console.log("------------------------------------");
 
         const history = sessionManager.getOrCreateSession(phone, sistemaPrompt);
         sessionManager.addMessage(phone, 'user', mensaje);
