@@ -59,40 +59,59 @@ app.get('/webhook', (req, res) => {
     }
 });
 
-// Webhook handling messages
+// Ruta POST para recibir mensajes de Facebook Messenger
 app.post('/webhook', async (req, res) => {
     const body = req.body;
 
+    // Verificamos que el evento provenga de una página de Facebook
     if (body.object === 'page') {
         for (const entry of body.entry) {
+            // Recibimos el evento de mensajería
             const webhook_event = entry.messaging[0];
-            const sender_id = webhook_event.sender.id;
+            console.log('📡 [MESSENGER] Evento recibido:', webhook_event);
+
+            // Obtenemos el ID del remitente (PSID) y el texto del mensaje
+            const sender_psid = webhook_event.sender.id;
 
             if (webhook_event.message && webhook_event.message.text) {
                 const text = webhook_event.message.text;
-                console.log(`💬 [MESSENGER] Mensaje de ${sender_id}: ${text}`);
+                console.log(`💬 [MESSENGER] Mensaje de ${sender_psid}: ${text}`);
 
-                // Process via same Registrar Logic
+                // --- CONEXIÓN CON LÓGICA DE REGISTRO ---
                 const metadata = { 
                     chat_id: 'MESSENGER', 
-                    author: sender_id,
+                    author: sender_psid,
                     messageTimestamp: Math.floor(Date.now() / 1000)
                 };
 
+                // Procesar el mensaje con la misma lógica de MTY Registrar
                 const response = await registrarLogic.handleGroupMessage(text, metadata);
+                
+                // Responder a través de la API de Graph de Meta
                 if (response && !config.SIMULATION_MODE) {
-                    await messengerService.sendMessage(sender_id, response);
+                    await messengerService.sendMessage(sender_psid, response);
                 }
             }
         }
+        // Siempre responde con un 200 para que Facebook no piense que tu servidor falló
         res.status(200).send('EVENT_RECEIVED');
     } else {
         res.sendStatus(404);
     }
 });
 
-app.listen(config.PORT, () => {
+console.log(`🛰️  [SERVER] Intentando iniciar servidor en puerto ${config.PORT}...`);
+const server = app.listen(config.PORT, () => {
     console.log(`🌐 [SERVER] Webhook escuchando en puerto ${config.PORT}`);
+    console.log(`🔗 URL sugerida: http://localhost:${config.PORT}/webhook`);
+});
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ [SERVER] Error: El puerto ${config.PORT} ya está ocupado por otro proceso.`);
+    } else {
+        console.error(`❌ [SERVER] Error al iniciar servidor: ${err.message}`);
+    }
 });
 
 // --- common router logic (WhatsApp) ---
