@@ -86,7 +86,9 @@ module.exports = {
                 text: mensaje,
                 groupId: metadata.chat_id,
                 author: metadata.author,
-                timestamp: metadata.messageTimestamp // Assuming metadata contains messageTimestamp
+                timestamp: metadata.messageTimestamp,
+                is_duplicate: !!duplicateId,
+                duplicate_of: duplicateId
             });
             // Formato secuencial real estable via tracking_id
             const mtyId = `MTY-${String(saved.tracking_id).padStart(5, '0')}`;
