@@ -26,21 +26,39 @@ module.exports = {
     /**
      * Save a registered order from a group.
      */
-    async saveRegisteredOrder(orderData) {
+    async saveRegisteredOrder(orderData, msgMetadata = {}) {
         const { data, error } = await supabase
             .from('new_orders')
             .insert([{
                 customer_phone: orderData.Número,
-                shipping_details: `${orderData.Cliente} | ${orderData.Dirección}, ${orderData.Colonia}, ${orderData.Ciudad_Municipio}, ${orderData.Estado} | Ref: ${orderData.Referencias || 'N/A'}`,
-                items_summary: `${orderData.Cantidad}x ${orderData.Producto}`,
+                customer_name: orderData.Cliente,
+                seller_name: orderData.Vendedora,
+                address: orderData.Dirección,
+                neighborhood: orderData.Colonia,
+                city_municipality: orderData.Ciudad_Municipio,
+                state: orderData.Estado,
+                zip_code: orderData.CP || null,
+                cross_streets: orderData.Entre_calles || null,
+                references: orderData.Referencias || null,
+                product_desc: orderData.Producto,
+                quantity: parseInt(orderData.Cantidad) || 1,
                 total_amount: parseFloat(orderData.Precio) || 0,
+                delivery_day: orderData.Día_de_entrega,
+                route: orderData.Ruta || null,
                 status: 'REGISTERED_MTY',
-                metadata: orderData // Store raw extracted data
+                original_msg: msgMetadata.text || null,
+                group_id: msgMetadata.groupId || null,
+                author_id: msgMetadata.author || null,
+                message_ts: msgMetadata.timestamp ? new Date(msgMetadata.timestamp * 1000).toISOString() : null,
+                metadata: orderData // Respaldo JSON completo
             }])
             .select('id, tracking_id')
             .single();
         
-        if (error) throw error;
+        if (error) {
+            console.error("❌ Error saving registered order:", error.message);
+            throw error;
+        }
         return data;
     },
 

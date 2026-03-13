@@ -82,9 +82,14 @@ module.exports = {
                 return `❌ No se registró. Faltan datos mínimos: ${missingMandatory.join(', ')}`;
             }
 
-            const order = await db.saveRegisteredOrder(extracted);
+            const saved = await db.saveRegisteredOrder(extracted, {
+                text: mensaje,
+                groupId: metadata.chat_id,
+                author: metadata.author,
+                timestamp: metadata.messageTimestamp // Assuming metadata contains messageTimestamp
+            });
             // Formato secuencial real estable via tracking_id
-            const mtyId = `MTY-${String(order.tracking_id).padStart(5, '0')}`;
+            const mtyId = `MTY-${String(saved.tracking_id).padStart(5, '0')}`;
             
             // Response format (DOS LÍNEAS exactas si hay duplicado)
             let response = `✅ Pedido registrado | ID: ${mtyId}`;

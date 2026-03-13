@@ -60,7 +60,11 @@ async function routeMessage(msg) {
             }
 
             // Process order (Shadow mode handled inside registrarLogic)
-            const metadata = { chat_id: msg.from, author: msg.author || msg.from };
+            const metadata = { 
+                chat_id: msg.from, 
+                author: msg.author || msg.from,
+                messageTimestamp: msg.timestamp 
+            };
             const registrationResult = await registrarLogic.handleGroupMessage(msg.body, metadata);
             if (registrationResult && !config.SIMULATION_MODE) {
                 await msg.reply(registrationResult);
