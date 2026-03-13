@@ -10,6 +10,8 @@ module.exports = {
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_KEY: process.env.SUPABASE_KEY,
     PORT: process.env.PORT || 3000,
+    FB_PAGE_ACCESS_TOKEN: process.env.FB_PAGE_ACCESS_TOKEN,
+    FB_VERIFY_TOKEN: process.env.FB_VERIFY_TOKEN,
 
     // Switch de Simulación (Modo Sombra)
     // Default seguro: true. Solo es false si la env var es exactamente 'false'.
