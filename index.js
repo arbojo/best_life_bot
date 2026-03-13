@@ -26,18 +26,32 @@ waClient.on('qr', qr => {
 waClient.on('ready', () => {
     console.log('✅ Bot Online y Listo (Mía + Registrador MTY)');
     console.log(`🛠️ Modo: ${config.SIMULATION_MODE ? 'SIMULACIÓN (Sombra)' : 'PRODUCCIÓN (Real)'}`);
+    console.log(`📡 Escuchando Grupo MTY: ${config.MTY_GROUP_ID}`);
+    
+    // Heartbeat cada 2 minutos para confirmar que el proceso sigue vivo
+    setInterval(() => {
+        console.log(`💓 [HEARTBEAT] ${new Date().toLocaleTimeString('es-MX')} - Bot Activo`);
+    }, 120000);
 });
 
-// --- Message Router ---
-waClient.on('message', async (msg) => {
+waClient.on('auth_failure', msg => {
+    console.error('❌ [ERROR] Fallo de autenticación:', msg);
+});
+
+waClient.on('disconnected', (reason) => {
+    console.log('⚠️ [WWS] Cliente desconectado:', reason);
+});
+
+// --- common router logic ---
+async function routeMessage(msg) {
     if (msg.isStatus) return;
 
     try {
-        const isFromMTY = msg.from === config.MTY_GROUP_ID;
+        // Al enviar nosotros mismos un mensaje, el ID del grupo suele estar en msg.to
+        const isMTY = msg.from === config.MTY_GROUP_ID || msg.to === config.MTY_GROUP_ID;
 
-        // 1. Logic for MTY Group (Order Registrar) based on ID
-        if (isFromMTY) {
-            console.log(`📦 [MTY] Mensaje detectado en grupo ID ${msg.from}`);
+        if (isMTY) {
+            console.log(`📦 [MTY] Mensaje detectado | De: ${msg.from} | Para: ${msg.to} | Propio: ${msg.fromMe}`);
             
             // Check if it's a query
             const queryResponse = await registrarLogic.handleQuery(msg.body);
@@ -54,40 +68,26 @@ waClient.on('message', async (msg) => {
             return;
         }
 
-        // 2. Logic for Private Chats (Mía Sales)
+        // 2. Logic for Private Chats (Mía Sales) - CONGELADA
+        /* 
         if (!msg.from.includes('@g.us')) {
-            console.log(`💬 [MÍA] Mensaje privado de ${msg.from}`);
-            
-            const aiResponse = await miaLogic.handleMessage(msg.body, msg.from);
-            
-            // Media handling (Image)
-            if (aiResponse.media?.show && aiResponse.media?.full_url) {
-                try {
-                    const response = await fetch(aiResponse.media.full_url);
-                    if (response.ok) {
-                        const arrayBuffer = await response.arrayBuffer();
-                        const buffer = Buffer.from(arrayBuffer);
-                        const mimetype = response.headers.get('content-type') || 'image/jpeg';
-                        const media = new MessageMedia(mimetype, buffer.toString('base64'), aiResponse.media.image);
-                        await waClient.sendMessage(msg.from, media, { caption: aiResponse.reply });
-                    } else {
-                        await msg.reply(aiResponse.reply);
-                    }
-                } catch (e) {
-                    console.error("❌ Error enviando media:", e.message);
-                    await msg.reply(aiResponse.reply);
-                }
-            } else {
-                await msg.reply(aiResponse.reply);
-            }
-
-            // Log interaction
-            await db.logChat(msg.from, msg.body, aiResponse.reply);
+            console.log(`💬 [MÍA] Mensaje privado detectado (IGNORADO - Módulo Congelado)`);
             return;
         }
+        */
 
     } catch (err) {
         console.error("❌ Error en Router:", err.message);
+    }
+}
+
+// --- Message Router ---
+waClient.on('message', routeMessage);
+waClient.on('message_create', (msg) => {
+    if (msg.fromMe) {
+        // Opcional: Procesar mensajes enviados por el propio bot si es necesario
+        // Pero al menos loguear que se detectó
+        routeMessage(msg);
     }
 });
 

@@ -16,8 +16,7 @@ module.exports = {
     SIMULATION_MODE: process.env.SIMULATION_MODE !== 'false',
 
     // WhatsApp Group IDs (Exact JIDs)
-    // REQUERIDO: Reemplazar con el ID real (ej: 123456789@g.us)
-    MTY_GROUP_ID: process.env.MTY_GROUP_ID || '120363324630453531@g.us', 
+    MTY_GROUP_ID: process.env.MTY_GROUP_ID || '120363417078102011@g.us', 
 
     // MTY Registrar - Campos Obligatorios (CONVENCIÓN CONGELADA)
     MTY_REQUIRED_FIELDS: [

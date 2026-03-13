@@ -37,7 +37,7 @@ module.exports = {
                 status: 'REGISTERED_MTY',
                 metadata: orderData // Store raw extracted data
             }])
-            .select()
+            .select('id, tracking_id')
             .single();
         
         if (error) throw error;
@@ -70,9 +70,73 @@ module.exports = {
     },
 
     /**
+     * Finds a potential duplicate order in the last 48 hours.
+     * Criteria: Same phone, product and quantity.
+     * Checks both new_orders and registrar_simulation_logs.
+     */
+    /**
+     * Finds a potential duplicate order in the last 48 hours.
+     * Criteria: Same phone, product and quantity.
+     * @param {Boolean} isSimulation - If true, checks both real and sim logs. If false, only real orders.
+     */
+    async findPotentialDuplicate(phone, product, quantity, isSimulation = false) {
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+        // Always check Real Orders
+        const { data: realOrder } = await supabase
+            .from('new_orders')
+            .select('id, tracking_id, metadata')
+            .eq('customer_phone', phone)
+            .gte('created_at', fortyEightHoursAgo)
+            .order('created_at', { ascending: false });
+
+        if (realOrder) {
+            for (const order of realOrder) {
+                const meta = order.metadata || {};
+                const prod = meta.Producto || meta.product;
+                const qty = meta.Cantidad || meta.quantity || meta.Quantity;
+                if (prod === product && String(qty) === String(quantity)) {
+                    // Use tracking_id for stable sequential ID
+                    const seqId = order.tracking_id || order.id;
+                    return `MTY-${String(seqId).padStart(5, '0')}`;
+                }
+            }
+        }
+
+        // Only check Simulation Logs if we are IN simulation mode
+        if (isSimulation) {
+            const { data: simLog } = await supabase
+                .from('registrar_simulation_logs')
+                .select('simulated_id, extracted_data')
+                .gte('created_at', fortyEightHoursAgo)
+                .order('created_at', { ascending: false });
+
+            if (simLog) {
+                for (const log of simLog) {
+                    const ext = log.extracted_data || {};
+                    const num = ext.Número || ext.Number || ext.numero;
+                    const prod = ext.Producto || ext.product;
+                    const qty = ext.Cantidad || ext.quantity;
+
+                    if (num === phone && prod === product && String(qty) === String(quantity)) {
+                        return log.simulated_id; // Already formatted as MTY-SXXXX or MTY-XXXXX
+                    }
+                }
+            }
+        }
+
+        return null;
+    },
+
+    /**
      * Save simulation log for shadow mode.
      */
     async saveSimulationLog(logData) {
-        return supabase.from('registrar_simulation_logs').insert([logData]);
+        const { data, error } = await supabase.from('registrar_simulation_logs').insert([logData]);
+        if (error) {
+            console.error("❌ Error saving simulation log:", error.message);
+            throw error;
+        }
+        return data;
     }
 };

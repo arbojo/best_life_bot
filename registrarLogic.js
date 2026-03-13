@@ -37,8 +37,20 @@ module.exports = {
             });
 
             // Production vs Simulation logic
-            const simulatedId = wouldRegister ? `SIM-${Math.random().toString(36).substr(2, 6).toUpperCase()}` : null;
+            // Para simulación: MTY-S + 4 caracteres aleatorios
+            const simulatedId = wouldRegister ? `MTY-S${Math.random().toString(36).substr(2, 4).toUpperCase()}` : null;
             
+            // Check for potential duplicate (regardless of simulation mode)
+            let duplicateId = null;
+            if (wouldRegister) {
+                duplicateId = await db.findPotentialDuplicate(
+                    extracted.Número, 
+                    extracted.Producto, 
+                    extracted.Cantidad,
+                    config.SIMULATION_MODE // Pass flag to scope search
+                );
+            }
+
             if (config.SIMULATION_MODE) {
                 await this.logSimulationResult({
                     mensaje,
@@ -47,7 +59,8 @@ module.exports = {
                     missingMandatory,
                     missingOptional,
                     wouldRegister,
-                    simulatedId
+                    simulatedId,
+                    duplicateId
                 });
 
                 // Save to Simulation Log table
@@ -58,6 +71,7 @@ module.exports = {
                     missing_optional: missingOptional,
                     would_register: wouldRegister,
                     simulated_id: simulatedId
+                    // Se omite duplicate_id por compatibilidad de esquema actual
                 });
 
                 return null; // Shadow mode: No reply to group
@@ -69,12 +83,16 @@ module.exports = {
             }
 
             const order = await db.saveRegisteredOrder(extracted);
-            const mtyId = `MTY-${String(order.id).slice(-6).toUpperCase()}`;
+            // Formato secuencial real estable via tracking_id
+            const mtyId = `MTY-${String(order.tracking_id).padStart(5, '0')}`;
             
-            // Response format
+            // Response format (DOS LÍNEAS exactas si hay duplicado)
             let response = `✅ Pedido registrado | ID: ${mtyId}`;
+            if (duplicateId) {
+                response += `\n⚠️ Posible duplicado con ${duplicateId}`;
+            }
             if (missingOptional.length > 0) {
-                response += ` | Omitidos: ${missingOptional.join(', ')}`;
+                response += `\nℹ️ Omitidos: ${missingOptional.join(', ')}`;
             }
             return response;
 
@@ -131,11 +149,18 @@ MENSAJE ORIGINAL:
      * Handle direct queries by ID.
      */
     async handleQuery(text) {
-        const match = text.match(/consultar (MTY-\w+|SIM-\w+)/i);
+        const match = text.match(/consultar (MTY-\w+)/i);
         if (match) {
             const id = match[1].toUpperCase();
             
-            if (id.startsWith('SIM-')) {
+            // Check in simulation logs first
+            const { data: simLog } = await supabase
+                .from('registrar_simulation_logs')
+                .select('*')
+                .eq('simulated_id', id)
+                .single();
+
+            if (simLog) {
                 return `🔎 [MODO SIMULACIÓN] El ID ${id} representa un registro de prueba exitoso en los logs de sombra.`;
             }
 
@@ -152,7 +177,7 @@ MENSAJE ORIGINAL:
     /**
      * Prints high-visibility simulation logs to console.
      */
-    async logSimulationResult({ mensaje, metadata, extracted, missingMandatory, missingOptional, wouldRegister, simulatedId }) {
+    async logSimulationResult({ mensaje, metadata, extracted, missingMandatory, missingOptional, wouldRegister, simulatedId, duplicateId }) {
         const timestamp = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
         
         console.log("\n==================================================");
@@ -173,11 +198,12 @@ MENSAJE ORIGINAL:
         console.log(JSON.stringify(missingOptional));
         console.log("\nResultado:");
         console.log(`- ¿Se registraría?: ${wouldRegister ? "SÍ ✅" : "NO ❌"}`);
-        console.log(`- SIM-ID: ${simulatedId || "null"}`);
+        console.log(`- MTY-ID: ${simulatedId || "null"} (Simulado)`);
+        console.log(`- ¿Duplicado?: ${duplicateId ? `SÍ (con ${duplicateId}) ⚠️` : "NO"}`);
         console.log(`- Guardado en: registrar_simulation_logs`);
         console.log("\nResumen corto:");
         if (wouldRegister) {
-            console.log(`[MTY][SIMULATION][OK] ${simulatedId}`);
+            console.log(`[MTY][SIMULATION][OK] ${simulatedId}${duplicateId ? ` (⚠️ Duplicado con ${duplicateId})` : ""}`);
         } else {
             console.log(`[MTY][SIMULATION][REJECTED] Faltan: ${missingMandatory.join(', ')}`);
         }
