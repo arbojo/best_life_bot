@@ -79,7 +79,16 @@ module.exports = {
 
             // Production: Save to DB
             if (!wouldRegister) {
-                return `❌ No se registró. Faltan datos mínimos: ${missingMandatory.join(', ')}`;
+                // Solo responder con error si parece un intento real de pedido 
+                // (ej. tiene al menos 4 campos llenos o tiene Vendedora/Producto)
+                const filledFieldsCount = Object.values(extracted).filter(v => v && String(v).trim().length > 0).length;
+                const hasKeyFields = (extracted.Vendedora && extracted.Producto);
+
+                if (filledFieldsCount >= 4 || hasKeyFields) {
+                    return `❌ No se registró. Faltan datos mínimos: ${missingMandatory.join(', ')}`;
+                }
+                
+                return null; // Silencio para charla general
             }
 
             const saved = await db.saveRegisteredOrder(extracted, {

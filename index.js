@@ -44,7 +44,10 @@ waClient.on('disconnected', (reason) => {
 
 // --- common router logic ---
 async function routeMessage(msg) {
-    if (msg.isStatus) return;
+    // CRITICAL: Ignore any message from the bot itself or status updates to avoid loops
+    if (msg.isStatus || msg.fromMe === true) {
+        return;
+    }
 
     try {
         // Al enviar nosotros mismos un mensaje, el ID del grupo suele estar en msg.to
@@ -87,12 +90,5 @@ async function routeMessage(msg) {
 
 // --- Message Router ---
 waClient.on('message', routeMessage);
-waClient.on('message_create', (msg) => {
-    if (msg.fromMe) {
-        // Opcional: Procesar mensajes enviados por el propio bot si es necesario
-        // Pero al menos loguear que se detectó
-        routeMessage(msg);
-    }
-});
 
 waClient.initialize();
