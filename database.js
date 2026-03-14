@@ -42,7 +42,7 @@ module.exports = {
                 references: orderData.Referencias || null,
                 product_desc: orderData.Producto,
                 quantity: parseInt(orderData.Cantidad) || 1,
-                total_amount: parseFloat(orderData.Precio) || 0,
+                total_amount: parseFloat(String(orderData.Precio).replace(/[^0-9.]/g, '')) || 0,
                 delivery_day: orderData.Día_de_entrega || orderData["Día de entrega"],
                 route: orderData.Ruta || null,
                 status: 'REGISTERED_MTY',
