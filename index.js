@@ -14,6 +14,102 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 const messengerService = require('./messengerService');
 
+const BACKEND_URL = 'http://localhost:4000/api/system';
+
+// --- Remote Logging Helper ---
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = function(...args) {
+    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+    originalLog(...args);
+    axios.post(`${BACKEND_URL}/logs`, { message, level: 'info', source: 'ENGINE' }).catch(() => {});
+};
+
+console.error = function(...args) {
+    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+    originalError(...args);
+    axios.post(`${BACKEND_URL}/logs`, { message, level: 'error', source: 'ENGINE' }).catch(() => {});
+};
+
+// --- Bot Active Status & Channels State ---
+let isBotActive = true;
+let activeChannels = new Set(); // Stores IDs of active groups/pages
+
+async function syncSystemState() {
+    try {
+        const [statusRes, channelsRes] = await Promise.all([
+            axios.get(`${BACKEND_URL}/bot-status`),
+            axios.get(`${BACKEND_URL}/channels`)
+        ]);
+        
+        isBotActive = statusRes.data.active;
+        
+        const activeIds = channelsRes.data
+            .filter(c => c.is_active)
+            .map(c => c.id);
+        
+        // Fallback: If no channels are defined yet, use legacy behavior (process everything)
+        // This protects the "heart" of the bot during its first run.
+        if (channelsRes.data.length === 0) {
+            activeChannels = null; // null means "active for everyone"
+        } else {
+            activeChannels = new Set(activeIds);
+        }
+        
+    } catch (err) {
+        // Fallback to active if backend is down - maintain core operation
+        isBotActive = true;
+        activeChannels = null; 
+    }
+}
+setInterval(syncSystemState, 15000); // Check every 15s
+
+async function detectAndSyncGroups() {
+    try {
+        originalLog('🔍 [DETECTOR] Iniciando escaneo de grupos...');
+        const chats = await waClient.getChats();
+        const keywords = ['MTY', 'GTO', 'CDMX', 'GDL'];
+        const excludedIds = [
+            '120363168691582285@g.us',
+            '120363425153281297@g.us',
+            '120363402554144326@g.us'
+        ];
+        
+        const filteredGroups = chats
+            .filter(chat => chat.isGroup)
+            .filter(group => {
+                const id = group.id._serialized;
+                const name = group.name || '';
+                return keywords.some(k => name.includes(k)) && !excludedIds.includes(id);
+            })
+            .map(group => ({
+                id: group.id._serialized,
+                name: group.name || 'Grupo sin nombre',
+                platform: 'WHATSAPP'
+            }));
+        
+        // Add Messenger manually
+        filteredGroups.push({
+            id: 'MESSENGER_PAGE',
+            name: 'Tienda Messenger',
+            platform: 'FACEBOOK'
+        });
+
+        originalLog(`📋 [DETECTOR] Escaneo completado. ${filteredGroups.length} canales relevantes encontrados.`);
+        
+        if (filteredGroups.length > 0) {
+            filteredGroups.forEach(g => originalLog(`   - [DETECTOR] Canal: ${g.name} (${g.id})`));
+            await axios.post(`${BACKEND_URL}/channels/sync`, { channels: filteredGroups }).catch(() => {});
+            originalLog(`🔄 [SYNC] Canales filtrados sincronizados con el Dashboard.`);
+        } else {
+            originalLog('⚠️ [DETECTOR] No se encontraron grupos que coincidan con los criterios (MTY, GTO, CDMX, GDL).');
+        }
+    } catch (err) {
+        originalError('❌ Error crítico en el detector de grupos:', err.message);
+    }
+}
+
 // --- WhatsApp Client Configuration ---
 const waClient = new Client({
     authStrategy: new LocalAuth(),
@@ -29,13 +125,25 @@ waClient.on('qr', qr => {
 });
 
 waClient.on('ready', () => {
-    console.log('✅ Bot Online y Listo (Mía + Registrador MTY)');
-    console.log(`🛠️ Modo: ${config.SIMULATION_MODE ? 'SIMULACIÓN (Sombra)' : 'PRODUCCIÓN (Real)'}`);
-    console.log(`📡 Escuchando WhatsApp Grupo MTY: ${config.MTY_GROUP_ID}`);
+    originalLog('✅ Bot Online y Listo (Mía + Registrador MTY)');
+    originalLog(`🛠️ Modo: ${config.SIMULATION_MODE ? 'SIMULACIÓN (Sombra)' : 'PRODUCCIÓN (Real)'}`);
+    originalLog(`📡 Escuchando WhatsApp Grupo MTY: ${config.MTY_GROUP_ID}`);
+    
+    // Initial Syncs
+    detectAndSyncGroups();
+    syncSystemState();
+    
+    // Periodic Syncs
+    setInterval(detectAndSyncGroups, 120000); // Sync groups every 2 min
+    setInterval(syncSystemState, 15000);      // Sync active/inactive every 15s
     
     // Heartbeat cada 2 minutos para confirmar que el proceso sigue vivo
     setInterval(() => {
-        console.log(`💓 [HEARTBEAT] ${new Date().toLocaleTimeString('es-MX')} - Bot Activo`);
+        if (isBotActive) {
+            originalLog(`💓 [HEARTBEAT] ${new Date().toLocaleTimeString('es-MX')} - Bot Activo`);
+        } else {
+            originalLog(`⏸️ [PAUSE] El bot está en pausa desde el dashboard.`);
+        }
     }, 120000);
 });
 
@@ -61,6 +169,9 @@ app.get('/webhook', (req, res) => {
 
 // Ruta POST para recibir mensajes de Facebook Messenger
 app.post('/webhook', async (req, res) => {
+    if (!isBotActive) {
+        return res.status(200).send('BOT_PAUSED');
+    }
     const body = req.body;
 
     // Verificamos que el evento provenga de una página de Facebook
@@ -116,6 +227,18 @@ server.on('error', (err) => {
 
 // --- common router logic (WhatsApp) ---
 async function routeMessage(msg) {
+    // Check if bot is active globally
+    if (!isBotActive) return;
+
+    // Check if this specific channel/group is active in dashboard
+    const channelId = msg.from || msg.to;
+    if (activeChannels !== null && !activeChannels.has(channelId)) {
+        // Log once to avoid spam, or only for relevant groups
+        const name = msg.from; // Simplified for logging
+        originalLog(`⚠️ [ROUTER] Mensaje ignorado de ${name} (Canal INACTIVO en Dashboard)`);
+        return; 
+    }
+
     // CRITICAL: Ignore any message from the bot itself or status updates to avoid loops
     if (msg.isStatus || msg.fromMe === true) {
         return;

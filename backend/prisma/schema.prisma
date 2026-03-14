@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model customers {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  phone                String    @unique
+  full_name            String?
+  purchases_count      Int?      @default(0)
+  last_interaction_at  DateTime? @default(now()) @db.Timestamptz(6)
+  tracking_status      String?   @default("NEW")
+  intent_score         Float?    @default(0.0)
+  metadata             Json?     @default("{}")
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  last_followup_at     DateTime? @db.Timestamptz(6)
+  last_recovery_at     DateTime? @db.Timestamptz(6)
+  
+  chat_logs           chat_logs[]
+}
+
+model new_orders {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customer_phone    String?
+  status            String?   @default("PENDING_CONFIRMATION")
+  total_amount      Decimal   @db.Decimal
+  shipping_details  String?
+  items_summary     String?
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  tracking_id       BigInt    @default(autoincrement())
+  seller_name       String?
+  customer_name     String?
+  address           String?
+  neighborhood      String?
+  city_municipality String?
+  state             String?
+  zip_code          String?
+  cross_streets     String?
+  references        String?
+  product_desc      String?
+  quantity          Int       @default(1)
+  delivery_day      String?
+  route             String?
+  is_duplicate      Boolean   @default(false)
+  duplicate_of      String?
+  original_msg      String?
+  group_id          String?
+  author_id         String?
+  message_ts        DateTime? @db.Timestamptz(6)
+  metadata          Json?
+
+  sheets_sync_queue sheets_sync_queue[]
+}
+
+model new_products {
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sku                String?   @unique
+  name               String
+  description        String?
+  category           String?
+  is_active          Boolean?  @default(true)
+  main_benefit       String?
+  usage_instructions String?
+  objection_handling String?
+  expert_hacks       String?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+
+  product_media      product_media[]
+  product_prices     product_prices[]
+  product_variants   product_variants[]
+}
+
+model chat_logs {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customer_phone  String?
+  message         String?
+  response        String?
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  
+  customer        customers? @relation(fields: [customer_phone], references: [phone], onDelete: Cascade)
+}
+
+model product_media {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id  String?   @db.Uuid
+  image_url   String
+  is_main     Boolean?  @default(false)
+  label       String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  
+  product     new_products? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+}
+
+model product_prices {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id  String?   @db.Uuid
+  label       String
+  price       Decimal   @db.Decimal
+  min_quantity Int?     @default(1)
+  is_recovery Boolean?  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  
+  product     new_products? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+}
+
+model product_variants {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id     String?   @db.Uuid
+  name           String
+  stock_quantity Int?      @default(0)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  
+  product        new_products? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+}
+
+model sheets_sync_queue {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id    String?   @db.Uuid
+  payload     Json
+  status      String?   @default("PENDING")
+  error_log   String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  synced_at   DateTime? @db.Timestamptz(6)
+  
+  order       new_orders? @relation(fields: [order_id], references: [id], onDelete: Cascade)
+}
+
+model system_logs {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  level      String   @default("info")
+  message    String
+  source     String?  // e.g., "WHATSAPP", "MESSENGER", "SYSTEM"
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model app_settings {
+  key        String   @id
+  value      Json
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model channels {
+  id         String   @id // platform-specific ID (e.g. group JID)
+  name       String
+  platform   String   // "WHATSAPP" or "MESSENGER"
+  is_active  Boolean  @default(true)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
